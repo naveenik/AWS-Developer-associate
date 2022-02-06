@@ -1,0 +1,682 @@
+Modules:
+1. Database, RDS Encrypyion ans Security
+2. Route 53
+3. VPC 
+4. S3
+5. AWS CLI, SDK, IAM Roles and Policies
+
+1. ---------- Database, RDS Encrypyion ans Security ---------------
+
+Storing data on Disks(EFS, EBS, EC2 Instance store, S3) can have there limits
+Database comes into Picture when we want to store data in structure and build the indexes efficiently to query through the data
+Database are Optimized for a purpose and come with different features, shapes and constraints
+
+Relation database: Collection of data items with pre-defined relationships between them.
+These items are organized as a set of tables with row and columns
+It uses SQL as a Query language
+
+Non Relation Database: Data are stored in non-tabular form (JSON),
+they are used when large quantities of complex and diverse data need to be organized.
+
+------- AWS RDS Overview  -----------
+It allows to create database in the cloud that are managed by AWS
+Ex : Postgres, MySql, MariaDB, Oracle, Microsoft SQL server and  
+Auora(developed by aws, not open sourced, it supports both mysql and postgres sql more faster 5 percent and cost also 20 percent, Its not a free tier)
+Aurora has self healing property
+Advantage over using RDS versus deploying DB on EC2
+* Automated provsioning, OS patching
+* Continous Backup and restore to specific timestamp
+* Monitoring Dashboards
+* Multi AZ setup for DR
+* Maintenance window for upgrades
+* Scaling capability (vertical and horizontal)
+***
+But you can't SSH into your instances
+
+-------  Region and AZ  ---------
+
+Read Replicas:
+Scale the workload to your DB
+can create upto 5 Read replicas (within AZ, Cross AZ or Cross region)
+Data is only written to the main DB
+
+Multi AZ:
+Failover in case of AZ outage(high avaialability)
+Data is only read/written main database
+Can only have 1 other AZ is failover
+
+Network cost: For RDS Read Replicas within the same region, you dont pay that fee(Because its AWS managed service)
+But for inter region cost will affect.
+RDS Multi AZ - One DNS name(automatic app failover to standby)
+
+Note: Read Replicas be setup as Multi AZ for Disaster Recovery.
+
+RDS ( From Single AZ to Multi AZ)
+Zero downtime operation(no need to stop the DB)
+Just click to modify for the database to setup stand by DB
+
+Multi Regions:
+Deploying Multi Region for Read Replicas
+Disaster recovery in case of region issue
+Local performance for global users
+
+----- RDS Security - Encryption: ---------
+1. At rest Encryption
+Possibility to encrypt the master and read replicas with AWS KMS
+Encryption has to be declined at launch time
+***
+If the master is not encrypted, the read replicas cannot be encrypted
+
+2. In flight - Encryption
+SSL Certificate to encrypt data to RDS in flight
+To enforce SSL:
+     PostgreSQL: rds.force_ssl=1 in the AWS RDS Console(parameter groups)
+	 MYSQL: Wihtin the DB:
+	 GRANT USAGE ON **TO 'mysqluser'@'%'REQUIRE SSL;
+
+RDS Encryption Operations:
+a. Encrypting RDS Backups
+snapshots of un-encrypted RDS databses are un-encrypted
+snapshots of encrypted RDS databases are encrypted
+
+b. To encrypt an Un-encrypted RDS database:
+create a snapshot of the un-encrypted database
+copy the snapshot and enable encryption for the snapshot
+Restore the databse from the encrypted snapshot
+Migrate applications to the new database, and delete the old database.
+
+----- RDS Security - Network and IAM: ---------
+Network Security:
+RDS Instance are usually deployed within a private subnet, not in a public one
+RDS security works by leveraging security groups - it controls Which IP/security group can communicate with RDS
+Access Management:
+IAM policies help control who can manage AWS RDS 
+Tradition Username and password are used to login into the database
+IAM-based authentication can be used to login into RDS MySQL and PostgreSQL
+RDS - IAM Authentication:
+IAM database authentication works with MySQL and PostgreSQL
+you don't need password just an authentication token obtained through IAM and RDS API calls
+
+    ----- RDS Security - Summary ------
+Encryption at rest:
+* Is done only when you first create the DB instance
+* or: unencrypted DB ==> snapshot ==> copy the snapshot ==> create DB from snapshot
+
+Your responsibility:
+check the ports/IP/Security group inbound rules in DBs SG
+in-database user creation and permissions thorugh IAM
+Creating database with or without public access
+Ensure parameter groups or DB is configured to only allow ssl certificates
+
+AWS responsibility:
+No SSH access
+No manual DB patching
+No manual OS patching
+No way to audit underlying instance
+
+***
+Read replicas use Asynchronous Replication and Multi-AZ uses synchronous Replication
+
+     ---- Aurora Database -----
+Aurora is a proprietary technology from AWS (not open sourced)
+PostgreSQL and MySQL are both supported as Aurora DB
+Its 5 times faster than MYsql and 3 times faster than postgres
+Aurora storage automatically grows increments of 10GB upto 64TB
+Aurora can have 15 replicas, where as mysql and postresql have 5 replicas
+Aurora cost more 20% than other mysql and postgesql
+
+Auroro High Availability and Read Scaling:
+6 copies of your data across 3AZ
+One Aurora Instance takes wirtes master
+Master + 15 read replicas
+Support for Cross region
+
+Aurora DB Cluster:
+Writer Endpoint --- > Pointing to the master DB (Write Operation)
+Reader Endpoint --- > Pointing to the reader DB (Reading Opertaion) - all replicas are connected to load balancing
+All Master and reader replicas are shared storage volume , auto sxpanding from 10GB to 64TB.
+
+Aurora security ---> RDS security both are same
+
+Common thing to know databse features:
+One Writer and multiple reader  
+serverles 
+
+    ----- Amazon Elastic Cache Overview --------
+Elastic cache - Is to get managed Redis or Memcached
+They are In-memory databases with high performance, low latency
+Helps reduces load off databases for read instensive workloads
+
+Here AWS takes care off OS maintenance/Patching, organisations, Setup configuraions, monitoring, failure recovery and backups
+
+---------- Dynamo DB --------------
+
+No SQL Databse
+Fully managed Highly available with replication across 3AZ
+Its distributed "serverless" database
+Millions of request per secound, trillions of row, 100s of TB storage
+Single-digit millisecound latency - low latency retrieval
+Fast and convinent in performace
+
+
+Dynamo DB is key/value Databse, Documentation Database, wide-column Database, Graph Databses etc.
+Dynamo DB Accelator - Called as DAX (Fully managed in-memory cache for Dynamo DB)
+DAX is only used for and is integrated with Dynamo DB, While Elastic cache can be used for other Databses
+
+------ Redshift Overview ---------
+
+Redshift is based on PostgresSQL, but its not used for OLTP(Online Transaction Processing)
+Its OLAP - Online analytical processing(analystics and data warehousing)
+OLTP - It stores and process data from transactions in real time
+OLAP - It uses Complex queries to analyse the aggregated historical data.
+
+Load data once every hour, not every secound
+Column storage of data
+Has a SQL Interface for performing the queries
+
+2. ---------- Route 53 ---------------
+
+Domain name system which translates the human friendly hostnames into the machine IP.
+Domain register: Route53, Godaddy
+DNS records: A, AAAA, CNAME, NS
+Zone file: contains DNS records
+ 
+http://api.www.example.com   (This complete url called > Fully Qualified Domain Name(FQDN))
+.com ---> Top level Domain
+.example.com ---> Secound level Domain
+www.example.com ---> Sub Domain
+api.www.example.com ---> Domain name
+http: Protocol
+
+Why Route 53 ---> 53 reference to traditional DNS porT
+It only AWS service provides 100% avaialability.
+
+Each record contians
+Domain/sub domain name: example.com or .com 
+Record Type: A or AAAA 
+value: 123.34.45.56
+Routing Policy: How route 53 responds ti queries
+TTL: amount of time the record cached at DNS Resolvers
+
+Must know DNS record types are:
+A/AAAA/CNAME/NS
+
+A - maps a hostname to IPv4
+AAAA - maps a hostname to IPv6
+CNAME - maps a hostname to another hostname
+- The target is a domain name which must have an A or AAAA record
+- Can't create a CNAME record for the top node of a DNS namespace (Zone Apex or example.com)
+- Example you can't create for example.com but you can create for www.example.com
+
+NS - Name servers for the Hosted Zone
+control how traffic routed for domain and subdomain
+Public Hosted Zones - Contain records how to route traffic to the Internet(Public domain name) ex: application.mypublicdomain.com
+Private Hosted Zones - Contain records how to route traffic within one or more VPCs(private domain name) ex: application.company.internal
+
+Records (Time to Live):
+How long to cache a query before requesting to new one in Route 53 Query.
+low TTL, Median TTL, High TTL
+
+CName and Alias:
+AWS resources (Loadbalancer, cloudfront etc) expose an AWS hostname
+LBL-1234.us.east-2.elb.amazonaws.com and you want myapplication.com
+
+CNAME: point a hostname to any other hostname (app.mydomain.com ==> blabla.anything.com)
+ONLY FOR NON ROOT DOMAIN (ala something.mydomain.com)
+
+Alias: Points a hostname to an AWS resource (app.mydomain.com ==> blabla.amazonaws.com)
+WORKS FOR ROOT DOMAIN AND NON ROOT DOMAIN (aka mydomain.com)
+free of charge and native health checks
+
+Route 53 - Alias Records:
+Maps a hostname to an AWS resource
+An extension to DNS functionality
+Automatically recognizes changes in the resources IP address
+UNLIKE CNAME, It can be used for top node of a DNS name eg: example.com
+Alias Record is always free A/AAAA AWS resources
+You can't set TTL
+
+Route 53 - Alias Records Targets:
+Elastic Load balancers, CloudFront Distributions, API Gateway,
+Elastic Beanstalk Env, S3 Websites, VPC Interface Endpoints, Global Accelator, Route 53 record in the same Hosted Zone
+You cannot set an ALIAS record for an EC2 DNS Name.
+
+Routing Policies:
+Define how Route 53 responds to DNS queries.
+Dont be confuse with below,
+DNS does not route any traffic, it only responds to the DNS queries.
+
+Routing Policies list:
+*Simple
+*Weighted
+*Failover
+*GeoLocation
+*Multi-ValueAnswer
+*GeoProximity
+
+Simple:
+Typically route traffic to single resource
+if multiple values are returned from route 53,a random one is choosen by the client
+Can't be associated with health checks
+
+Weighted:
+Control the % of the requests that go to each specific resources.
+DNS records must have the same name and types
+Can be associated with health checks
+Assign a weight of 0 to a record to stop sending traffic to a resource
+If all records have weight of 0  then all records will be returned equally.
+
+Latency:
+Redirect the traffic to the ALB OR RESOURCE that has the latency close to us.
+Latency is Based on traffic between users and AWS regions
+can be associated with health checks
+
+Health Checks:
+HTTP health checks are only for Public resources
+Health checks are integrated with CW
+About 15 global health checkers will check the endpoint health
+Configure you router/firewall to allow incoming requests from Route 53 Health Checkers
+They can't access private endpoits(private VPC or on-premises resource)
+
+Routing Policies:
+Differnt from latency based
+This routing is based on user location
+Should create a "Default" record(in case there's no match on location)
+can be associated health  checks
+
+Geopromitiy Routing Policy:
+Route traffic to your resources based on the geographic location of users and resources
+Ability to shift more traffic to resources based on the defined "BIAS"
+
+Multi- Value: Routing Policies
+Use when routing traffic to multiple resources
+Route 53 return multiple values /reosurces
+Multi-value is not a substitute for having an ELB
+
+***
+If you buy your domain on a 3rd party registar(Go daddy), you can still use Route 53 as the DNS Service Provider.
+Create Hosted Zone in Route 53
+Update NS Records in 3rd party website to use Route 53 Name servers
+Domain Register != DNS service
+
+*No Health Checks DNS type
+Simple Rouing Policy
+
+*Health Check DNS type
+Wieighted Routing Policy
+Latency Routing Policy
+Failover Routing Policy
+
+3. ---------- VPC ---------------
+
+VPC(Regional resource):               Private Network to deploy your resources
+Subnets(Availability Azone resource): Allow you to partition your network inside your VPC.
+Public Subnet: 						  Subnet that is accessible from the Internet
+Private Subnet:                       Subnet that is not accessible from the Internet
+Route Tables:                         To Define access to Internet and between subnets
+
+Internet Gateway and NAT Gateways:
+Internet Gateways: It helps your VPC instances connect with the Internet
+Public Subnets have a route to the InternetGateway
+                              
+Public Subnet  === EC2 instance ----> IGW(Routing to IGW using Route Tables)  ---> Exposed to Internet
+Private Subnet === Database ----> NAT(Here DB is routed to NAT from there routed to IGW)  ---> Exposed to Internet
+
+NAT Gateways(AWS-managed) and NAT Instances(self-managed) allow your instances in your Private subnets
+to access the internet while remaining in Private.
+
+NACL(Network Acess Control List):
+* A firewall which controls traffic from and to subnet
+* Can Have Allow and Deny Rules
+* Are Attached at the subnet level
+* Rules only Include IP address
+
+Security Groups:
+* A firewall that controls traffic to and from an EC2 Instance
+* Can have only Allow rules
+* Rules includes IP address and other security Groups
+
+EC2 Instance(Security Group)  ---> NACL ---> Public Subnet
+
+Security Group                                 Netwrok ACL
+* Operates at Instance Level                  Operates at Subnet level
+* Support Allow Rules only                    Support Allow rules and Deny rules
+* Is Stateful: Return traffic is              Is Stateless: Return Traffic must be Explicitly
+automatic allowed, regardless of any rules    allowed by rules
+
+VPC Flow logs:
+Capture Information about IP traffic going into your interfaces
+VPC flow logs, Subnet Flow logs, Elastic Netwrok Interface flow logs 
+Helps us to monitor and troubleshoot connectivity issues,
+VPC Flow logs data can go to S3/CloudWatch Logs
+
+VPC Peering:
+* Connect two VPC, privately using AWS's Network
+* Make them behave as if they were in the same network
+* Must not have Overlapping CIDR(IP address range)
+VPC Peering connection is not transitive(must be established for each VPC that need to communicate with one Another)
+
+VPC Endpoints:
+It allows you to connect securely to your VPC to another service
+This gives you Enhanced security and lower latency to access AWS services
+VPC Endpoint Gateway: for S3 and DynamoDB
+VPC Endpoint Interface: The rest AWS services
+
+Site to Site VPN:
+* Connect an On-premises VPN to AWS
+* Goes Over the Public netwrok and little slow
+
+Direct Connect(DX):
+* Establish a Physical connection between on-premises and AWS
+* The connection is private network, secure and fast
+***
+How to make connection
+On-premises: must use a Customer Gateway:(CGW)
+AWS: must use a Virtual Private Gateway:(VGW)
+Once this Gateways are established are connected through Site-to-Site Connection
+
+Transit Gateway:
+For having transitive peering between thousands of VPC and On-premises, hub-and-spoke connection
+One signle Gateway to provide this functionality.
+
+--------- Summary ------------
+VPC: Virtual Private Cloud
+Subnets: Tied to an AZ, network partition of the VPC
+Internet Gateway: at the VPC level for public subnets, provide internet access
+NAT Gateway/Instances: Give Internet access to Priavte Subnets
+NACL: stateless, subnet rules for inbound and outbound
+Security Groups: Stateful, Operate at the EC2 Instance level
+VPC peering: Connect two VPC with non overlapping IP ranges, nontransitive
+VPC Endpoints: Provide Private access to AWS service within VPC
+VPC Flow logs: network traffic logs
+Site-to-site VPN: VPN over public internet between on-premises and AWS-managed
+Direct connect: Direct Private connection to AWS
+Transit Gateway: Connect thousands of VPC and on-premises networks together
+
+4. ---------- S3 Bucket ---------------
+
+Simple Storage Service is storage for Internet.
+It allows people to store objects(files) in buckets (directories).
+Buckets have globally unique name and defined at regional level
+Ex: only small letter with numeric is used to define a bucketname
+
+Objects(files) have a Key, key is full path.
+s3://my-bucket/my_file.txt   ---> my_file.txt is Key
+s3>//my-bucket/my-folder/sub-folder/my_file.txt  --->  my-folder/sub-folder/my_file is key 
+
+Max Object Size is 5000GB, if you Upload more than 5GB, must use "multi-part" Upload.
+S3 is Global console, but for bucket we need a region to create.
+It has a simple web services interface that you can use to store
+and retrieve any amount of data, at any time, from any where on the web.
+
+Versioning the s3, It enabled at the Bucket level
+Its best practises to version your buckets
+* Protect against un-intended deletes
+* Easy roll back to previous version
+Note:
+Any file is not versioned proir to enabling versioning will have version "null"
+ 
+Encryption:
+There are 4 methods of Encrypting the Objects in S3
+SSE-S3 : encrypt S3 objects using keys handled and managed by AWS (AES256)
+SSE-KMS : leverage AWS key Management service to manage encryption keys(aws:kms)
+SSE-C : when you want to manage your own encryption keys
+Client-side
+
+Both SSE-S3 and SSE-KMS are server side encryption will be there
+HTTPS method is manadatory for SSE-C
+
+S3 Security:
+* User Based
+  IAM policies - which API calls should be allowed for specific user from IAM console
+* Resource Based
+  Bucket Policies - Bucket wide rules from the S3 console - allows cross account
+  Object Access control
+  Bucket policy and user policy are the two of the access policy options avaialable for your to grant permission to S3 resources.
+***
+Public Access  - Use Bucket policy
+User Access to S3 - IAM permissions
+A storage service with virtually unlimited space
+a highly durable object storage infrastructure
+with 99.999999999 performance
+EC2 instance access - Use IAM Roles (best ec2 attache ec2 roles to access)
+
+S3 Websites:
+S3 can host static websites and have them accessible on the www
+<bucket-name>.s3.<AWS-region>.amazonaws.com
+If we recieve 403 error, mkae sure the bucket policy allows public reads
+
+Cross Origin Resource Sharing (CORS)
+A way for client web applications that are loaded in one domain to interact with resources in a different domain.
+If a web browser from bucket1 need to access bucket2, then we need to add cors cofiguration to bucket2 to allow bucket1
+
+
+S3 MFA Delete:
+MFA forces user to generate a code on a device before doing important operations on S3.
+To use MFA-Delete, enable Versioning on the S3 bucket
+Only the bucket owner (root account) can enable/disable MFA-delete
+MFA-delete currently can only be enabled using the AWS CLI, AWS SDK or Amazon S3 Rest API.
+
+S3 Default Encyption:
+One way to "force encryption" is to use a bucket policy and refuse any API call to PUT an S3 object without encryption headers.
+Another way is to use the "default encryption" option in S3.
+Note: Bucket Policies are evaluated before "default encryption"
+
+S3 Access Logs:
+For audit purpose, you may want to log all access to S3 buckets
+***
+Do not set your loggin bucket to be monitored bucket
+It will create a logging loop and your bucket will grow in size exponentially.
+Best practise make 2 sepetate buckets.
+
+S3 Replication (CRR,SRR):
+Must enable versioning in source and destination
+Cross Region Replication
+Same Region Replication
+Buckets can be in different accounts
+Copying is asynchronous
+Must give proper IAM permissions to S3
+
+CRR - use cases: compliance, lower latency access, replication across accounts
+SRR - use cases: log aggregation, live application between production and test accounts.
+
+After activating, only new objects are replicated (not retroactive)
+For DELETE operations: can replicate delete markers, deletion with version ID
+There is no "chaining" of replication 
+
+S3 pre sign url
+It allows you to grant temporary access to users who dont have permission to directly run AWS operations.
+aws s3 presign s3://mybucket/myobject --region my-region --expires-in 300   (by default value will be 3600 secounds)
+
+output:
+https://<bucket-name>.s3.<AWS-region>.amazonaws.com/objectfile presign datawill be there
+ 
+***
+S3 Storage Classes
+* Amazon S3 Standard - General Purpose - Used for Frequently accessing
+* Amazon S3 Standard-Infrequent Access - Used for Less frequence access
+* Amazon S3 One Zone-Infrequent Access - same as above but in single AZ rather than Mutli AZ
+* Amazon S3 Intelligent Tiering
+Backup storage and retrieval
+* Amazon Glacier : with low cost, retrieval from few minutes to several hours
+* Amazon Glacier Deep Archieve : with much low cost, retrieval from 12 to 18 hours
+
+S3 Standard - General Purpose 
+High Durability of objects across multiple zone
+Use cases: Big data analytics, mobile and gaming applications, content distribution.
+
+S3 Standard - Infrequent Access (IA)
+same a general purpose, only less frequently accessed.
+Use cases: as a data store for disaster recovery, backups.
+
+S3 One Zone - Infrequent Access (IA)
+same as IA but data is stored in single AZ
+Use cases: storing secondary backup copies of on-premises data or storing data you can recreate.
+
+S3 Intelligent Tiering:
+Same low latency and high throughput perfomance of S3 standard
+Automatically moves objects between two access tiers based on changing access patterns
+
+Amazon Glacier
+low cost object storage meant for archiving backup
+Each item in Glacier called "Archieve" (upto 40GB)
+Archieves aare stored in "Valuts"
+
+    ---- Glacier Archieve ----                  ---- Deep Glacier Archieve -----
+Expedited (1 to 5 minutes)                  Standard (12 hours)
+Standard (3 to 5 hours)                     Bulk (48 hours)
+Bulk (5 to 12 hours)
+Minimun storage duration of 90 days         Minimun storage duration of 180 days    standard IA and One Zone IA minimun duration 30 days
+
+For Infrequently accessing move to STANDARD_IA
+For archieve onjects you don't need in real-time, GLACIER or DEEP_ARCHIEVE
+
+S3 Baeline - performance
+You can achieve 3500 PUT/COPY/POST/DELETE and 5500 GET/HEAD requests per secound
+There are no limits to the number of prefixes in a bucket.
+
+Multi-Part Upload
+most of the files > 5 GB
+can help parallelize uploads 
+
+S3 Transfer Accerlation
+Increase transfer speed by transferring file to an AWS edge location which will forward the data to S3 bucket in the target location.
+
+***
+S3 select and Glacier select:
+Retrieve less data using SQL by performing server side filtering.
+adv: less network transfer, less CPU cost client-side
+
+S3 Event Notifications:
+This feature enables to recieve notifications when certain events happens in your S3 bucket.
+
+Amazon Athena:
+Serverless query service to perform analytics against S3 objects
+Uses standard SQL language to query the files
+pricing 5$ per TB of data scanned
+
+Use cases: Business Intelligence, analytics, reporting Query VPC flow logs, ELB logs, CloudTrail Logs.
+Exam Tip: Athena - to analyze data in s3 using serverless SQL .
+To report those data, you can use Amazon Quicksights.
+
+Edge Computing
+Process data while its being created on an edge location
+Thes locations may have limited/no internet access
+we setup a snowball/Edge snowcome device to do edge computing
+
+AWS Storage Gateway
+Bridge between on-premise data and cloud data in S3
+Uses cases: Disaster rcovery, Backup and restore, tiered storage
+
+------------ Summary ------------
+
+Buckets v/s Objects: Global unique name, tied to a region
+S3 secuirty: IAM policy, S3 Bucket policy, S3 Encryption
+S3 Websites: Host a static website on Amazon S3
+S3 versioning: Multiple version for files, prevent accident deletes
+S3 Access Logs: Log request made within your S3 bucket
+S3 Replicatin: same-region or cross-region must enable versioning
+S3 Storage Classes: Standard, A1, IX-IA, Intelligent, Glacier, Glavier Deep ArchieveS3 Lifecycle Rules: Transistion objects between classes
+S3 Glacier vault lock/ s3 oBJECT kOCK: WORM(Write Once Read Many)
+Snow Family: Import data onto S3 thorugh a physical devicem edge computing
+Ops hub: Desktop application to manage snow family devices
+Storage Gateway: Hybrid solution to extend on-premises storage to S3
+
+5. ---------- AWS CLI, SDK, IAM Roles and Policies ---------------
+
+Policies are set of permisions to aws services,
+those set of policies are attached to role, based on role user will have access or deny
+Policy generator simplifies the procesd of creating policy documents.
+In AWS we have Policy simulator to know the which all the services we have access and deny on UI page.
+
+Some of AWS CLI commands(not all) contain a --dry-run option to stimulate API calls
+you can check API calls access to services with the help of --dry-run options (Success or error will appear)
+
+When error occured using the --dry-run you can decode using the STS command line
+aws sts decode-authorization-message --encoded-message <paste enocdedmessage>
+Once output is obtained, copy the data and convert into json format you will have detailed information. 
+
+***
+EC2 Instance Metadata:
+It allows AWS EC2 instances to "learn about themselves" wihtout using an IAM Role for that purposes
+The URL is http://169.254.169.254/latest/meta-data/
+You can retrieve the IAM ROLE name from the metadata, but you CANNOT retrieve the IAM POLICY.
+METADATA = Info about the EC2 Instance
+USERDATA = launch script of the EC2 Instance
+
+With the above URL you can get detailed information about EC2 Instances in all specific info.
+
+AWS CLI Profiles: .aws ---> we will have aws configurtion default which you added
+to add another aws account follow the below steps
+aws configure --profile my-another-aws-account
+if you cat configure, you will get 2 account credentials
+
+aws s3 ls --profile my-another-aws-account  (to know the s3 data in particular aws account)
+
+MFA with CLI:
+First we need to create a temporary session
+to do first we need to create STS GetSession Token API call
+
+aws sts get-session-token --serial-number arn-of -the-device --token-code code-from-token --duration-secounds 3600
+aws sts get-session-token --serial-number arn:aws:iam::387124123361:mfa/stephane --token-code 886434
+arn:aws:iam::387124123361:mfa/stephane ---> create from IAM user with security device by authenticator app
+886334 ---> code generated in app
+
+AWS SDK:
+Software Development Kit, It helps simplify your coding by providing javascript objects for AWS Services.
+We have to use the AWS SDK when conding against AWS Services such as DynamoDB.
+***
+Good to Know: If you don't specify or configure a default region, then US-EAST-1 will be chosen by default.
+
+Exponential Backoff and service Limits:
+
+API Rate limits:
+DescribeInstances API for EC2 has a limit of 100 calls per secounds.
+GetObject on S3 has a limit of 5500 GET per secound per prefix
+For Intermittent Errors: Implement Exponential Backoff
+For Consitent Errors: request an API throttling limit increase
+
+Service Quotas(Service Limits):
+Running On-Demand Standard Instance | 152 vCPU
+You can request a service limit increase by opening a ticket
+You can request a service quota increase by using the service Quotas API
+
+***
+If you get ThrottlingException intermittenly, use Exponential backoff
+suppose if you defined yourself AWS API as is.
+must implement retries in 5xx servers error and throttling,not on 4xx
+
+AWS CLI Credentials Provider Chain:
+Below are the following order with priority,
+* Command line options: --region, --output, and --profile
+* Enviornment Variabels: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_ACCESS_TOKEN
+* CLI credentials file: aws configure
+  ~/.aws/credentialson linux/MAC and C:\Users\user\.aws\credentials\ on windows
+* CLI configuration file: aws configure
+  ~/.aws/config on linux/mac os and C:\Users\USERNAME\.aws\config on windows
+* Container credentials: for ECS tasks
+* Instance profile credentials: for EC2 Instance Profiles.
+
+AWS SDK Default Credentials Provider Chain:
+Below are the following order with priority,
+* java system properties: aws.accessKeyid and aws.secretKey
+* Enviornment Variabels: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY 
+* The default credentials profile file: ~/.aws/credentials, shared by many SDK
+* Amazon ECS Container credentials: for ECS containers
+* Instance profile credentials: for EC2 Instance Profiles.
+
+Overall NEVER EVER STORE AWS CREDENTIALS IN YOUR CODE.
+Best practise is for credentials to be inherited from the credentials chain
+
+If using working within AWS, use IAM Roles
+* EC2 Instances Roles for EC2 Instances
+* ECS Roles for ECS tasks
+* Lambda Roles for lambda functions
+
+If your outside of AWS, use enviornment variables/named profiles.
+
+
+Signing AWS API requests
+If youuse the SDK or CLI, the HTTP requests are signed for you
+You should sign an AWS HTTP request using signature V4 (SigV4)
+

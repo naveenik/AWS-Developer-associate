@@ -1,0 +1,165 @@
+
+
+1. VPC flow logs
+Its a feature that enables to capture information about the IP traffic going to and from network instnaces in your VPC
+Cloudtrail: It used to track the API call 
+AWS Inspector:
+Its an automated security assessment service that helps improve the security and compliance of application deployed on AWS
+
+2. Alarm:
+set the Evaluationn period and Datapoints to Alarm  --- Alarming for 3 points consecutively breached
+high resolution metric alarm specify when you have 10 secounds or 30 secounds monitoring scenario
+use Metric math in Cloudwatch to properly compute the  threshold - applicable for query multiple cloudwatch metrics or to create a new time series bases on selcted metrics
+
+3. Environment variables for lambda functions: Enable you to dynamically pass settings to your function code and libraries without making changes to yourcode
+stage variables : Its only available for API gateway and not in lambda
+layer: A layer is ZIP archieve that contains libraries, custom runtime or other dependencies
+Aliases: pointer to specific lambda function version 
+by using aliases you can access the lambda function which the alias is to
+
+4. Developer to trace the event source through lambda function
+aws cloudwatch to automatically emit metrics and logs for all invocations and AWS X-RAY for tracing the application request detailly
+AWS system maanger - used to view operational data for groups of resourcs such as RDS, EC2, S3 0 - wrong  answer
+Amazon Inspector - security assessments that help for unintended  network accessibility of your Amazon EC2 instances and vulnerabilities of EC2.
+
+5. DynamoDB table with DynamoDB streams Enabled, item is updated should send only copy of items to S3.
+StreamViewType determines what informaion need for this table
+
+OLD IMAGE - Sends only old data before modified - Correct answer
+NEW IMAGE - Send only new data after modified - wrong answer
+KEYS_ONLY - Key attributes are modified values stored - wrong answer
+NEW_AND_OLD_IMAGE - Store both before and after modified
+
+6. lambda function need to refactor to process the data within your VPC rather than initial outside GraphQL
+
+Add a NAT gateway to your VPC and ensure associated security groups with lambda functions allows outbound connections
+ENI it provides connect to others services in AWS within your private VPC  - wrong answer
+
+7. developer need to ensure all changes made to the items in DynamoDB are recorded and stored to another DynaomoDB in another region
+
+DyanmoDB Accelatoe - To increase the performance of the DynamoDB table with response in microsecound for millions of requests - wring answer
+DynamoDB point in time Recovery - It helps protect your DynamoDB tables from accidental write or delete operations - wring answer
+DyanmoDB Stream - It captures the time-ordered sequence of item-level modifications in any DynamoDB table for upto 24Hours can veiw before and after modify - correct answer
+
+8. EC2 instance that need provision VPC, require acess to S3 bucket.
+
+S3 is not part of your VPC, unlike EC2 Instance, EBS Volumes, ELBs and other services typically residence your nwetwork
+so EC2 instance need to have access to the internet to access S3
+
+VPC Endpoint to S3 will access - correct answer
+Create IAM role and attach to instance - but no connectivitu between servies - wrong answer
+
+9. lambda function has intermittent issue in processiong customer data, which environment variables used by AWS lambda
+to facilate the communciation with  X-RAY
+
+AWS X-Ray is an AWS services that allows you to detect, analyze and optimize performance issues with AWS lamnda functions
+so AWS lambda uses environment variables to facilate the communication with X-Ray Daemon 
+
+X_AMZN_TRACE_ID : contains tracing header, trace_id, and parent segment_id when lambda fucntion is invoked
+AWS_XRAY_CONTEXT_MISSING : Its behavior function tries to record X-Ray data 
+AWS_XRAY_DAEMON_ADDRESS: It expose the X-Ray daemon address in the following format IP_ADDRESS:PORT
+
+X_AMZN_TRACE_ID and AWS_XRAY_DAEMON_ADDRESS are correct answer
+
+10. lambda function which process notifications S3, 50 request per secound and each request take 100 secound to complete
+
+Concurrent executions refers to number of executions of your function code, we can also estimate
+concurrent executions = invocationn  per secound * average execution duration
+by default AWS lambda limits total concurrent executions 1000 within a region
+so expected concurrent increases the defaut, Request for AWS to increase the limit of your concurrent executions - correct answer
+
+11. A task placement strategy is an algorithm for selecting instance for task placement or task termination
+ECS has following task placement strategies
+
+Binpack: place task based on least available amount of CPU or memmory 
+Random: place task randomly
+spread: place task based on the specified value, attribute key-value pairs, instance id or host
+distinctInstance: Its not valid task placement strategy, but this is used as a constraint to place each task on a different container instance.
+
+12. A client want to fetch latest data from API gateway, and invalidate the existing cache how to implement
+
+have a client send request with  Cache-Control: max-age=0 header   --- correct answer
+Allowing client to access end-point directly is incorrect because the purpose of placing API gateway in-front of your End-point is to not to expose
+your endpoints to the public and risk-security  issues  --- wrong answer
+
+13. Mission critical application need to monitor to provide immedite insight its sub-minute activity, need to collect logged users for every 10 secounds
+Each metric in one of following:
+Standard resolution - Data having 60 secounds granularity
+High resolution - Dataa a granularity of 1 secound
+
+Publish a high resolution custom metric to cloudwatch --- correct
+Publish a custom metric to cloudwatch using PUTmetric ---storage-resolution set to default --- wrong because of default is 60 secounds
+
+14. Client wants to retireve latest data from dynamoDB table, although caching is enabled we want specific client they want to retrive latest data
+how to make the configuration ?
+
+Tick the Require Authorization(not every client invalidate cache) in cache settings and the client must send a request contains cache-control max-arg=0 header   --- correct
+ 
+15. Developer uses AWS SAM templates to deploy a serverless application, he need embed applicaiton to aws serverless Application repository
+
+AWS::Serverless::Application    --- to define nested application into your serverless       --- correct
+AWS::Serverless::LayerVersion   --- resource type layer for libraries or runtime function
+AWS::Serverless::Api            --- resource type desceribe Api 
+AWS::Serverless::Funtion        --- resource type describes creating lambda function
+
+16: As DyanmoDB Table grows, how to improve the performance of Application with minimal cost
+
+using Query operations and Reduce Page size --- correct
+scan - it scans the entire table 
+DyanmoDB Accelator - It will add cost by maintaing scalability and read performace
+Increasing WCU - It will increase the cost
+
+17. AWS codecommit repository to create and delete in order to maintain unique repository what are the least prevelages required?
+
+CodeCommit: CreateRepository and CodeCommit: DeleteRepository    ---- correct
+CodeCommit: CreateBranch and CodeCommit: DeleteBranch   ---- wrong because specific to only branch not the repository
+
+18. lambda function event source mapping through API Gateway, 10 request and 50 secouns to complete
+how to prevent the throttling?
+
+Concurretn executions = invocations per secound * average execution duration
+By default AWS lmanda limits is 1000 in which more requied requested through raising request for AWS to concurrent excutions
+under this automatically lambd will scale the load
+
+19. lambda function download the file 55MB from external repository, this cause function timeout intermittently
+how to refrator to solve the issue
+
+Store the file in the:  /tmp directory of the execution context and reuse it on succeding invocations
+
+20. Developer wants a multihreaded event based key/values pairs that will cache the results
+
+both redis and memcache have same features with some differen based on scenarios
+simplest model and Multitreaded ---- Memcached     --- correct
+single threaded server advanced data structure --- Redis
+Amazon Cloudfront --- Content Delivery Network which delivers statis, dynamic and interactive content using global network of edge locations
+IoT Greengas --- to enable connected devices to run AWS lambda functions to execute machine learning models keeping device sync on
+
+21. Requirement to configure the application to retrieve data from database only in the event cache miss
+
+lazy loading: Is a caching strategy loads data into the cache only when neccessary
+
+22. online trading application requires database can scale globally, handle frequent schema changes 
+
+DynamoDB : Ideal for flexible schemas like semi or unstructured data
+RDS and Aurors: Ideal for rigid schema
+
+23. A company need all database credentials to be encrypted and automatically rotated
+
+AWS secrets manager it easier to manage secrets, passowrds and thrid-party API Keys and enabling automatic rotation --- correct
+Systems Manager parameter - Doesn't rotate parameters 
+createing IAM role and attaching - even though IAM role provide permission to access, it can't rotate the credentials
+
+24. ECS cluster process large stream data and store result in DynamoDB, There is a urgent requirement to detect new entries in table 
+and automatically trigger lambda function
+
+Enable DynamoDB streams to detect new entries and automatically trigger the lambda function
+
+25. Global secoundary Index and Local secoudary index concepts need to look
+
+
+
+
+
+
+
+

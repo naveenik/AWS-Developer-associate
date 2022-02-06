@@ -1,0 +1,420 @@
+Modules:
+1. AWS Integration (SQS, SNS & Kinesis)
+2. AWS Serverless: Lambda 
+
+
+1. ---------- AWS Integration (SQS, SNS & Kinesis) ---------------
+When we start Deploying multiple applications, they will inevitably need to communicate with each other.
+Synchronous between applications can be problematic, if there are sudden spikes of traffic.
+
+In that case, is better to decouple your applications
+a) Using SQS: Queue model
+b) Using SNS: pub/sub model
+c) Using Kinesis: Real-time streaming model
+
+These services can scale independently from your application.
+
+A) SQS Queue Model:
+
+          send messages                 poll messages
+Producer ---------------->  SQS Queue ----------------> Consumer
+
+***
+Fully Managed service, used to DECOUPLE APPLICATION ---( Amazon SQS Queue: Standard Queue)
+
+Attributes:
+Unlimited throughput, unlimited number of messages in queue.
+Default retention of messages: 4 days, Maximum of 14 days
+low latency (<10 ms on publish and recieve)
+Limitation of 256kb per message sent
+
+Producing the Messages:
+Produced to SQS using the SDK(SendMessage API)
+The messages is PERSISTED in SQS untill a consumer deletes it
+
+          send messages    
+Producer ----------------> SQSQ Queue
+
+SQS Consuming Messages
+Consumers (Running on EC2 Instances, servers or AWS lambda)
+Poll SQS for messages (receive up to 10 message at a time)
+Process the messages (Example: insert the message into an RDS database)
+Deleting the messages using the DeleleMessage API
+
+             poll messages             Insert
+SQS Queue ----------------> Consumer  ---------> Amazon RDS
+   <-------Delete Message ------|
+
+SQS - Multiple EC2 Instances Consumers 
+Consumers recieves and process messages in parallel
+At least once delivery, best-effort message ordering 
+
+SQS - With AutoScaling Group
+***
+Cloudwatch metric QUEUE Length (Approximate number of messages)
+Cloudwatch trigger to asg based on Metric
+
+Encryption:
+In-flight encryption using HTTPS API
+At rest encryption using KMS keys
+Client-side encryption if the client wants to perform encryption/decrption itself
+
+Access Controls: IAM policies to regulate access to the SQS API
+
+SQS Access policies(similar to S3 bucket policies)
+Usefull for cross-account access to SQS queues
+Usefull for allowing other services (SNS, S3 ...) to write to an SQS Queue
+
+***
+SQS Queue Access Policy:
+Cross Account Policy --- To write the send messages from different aws account queue to different aws account ec2 instance
+Publish S3 Event Notifications to SQS queue: when you want to upload the s3 to queue, It requires Access policy
+
+***
+SQS Message Visibility Timeout
+After a message is polled by a consumer, it becomes invisible to other consumers
+By default, the "message visibility timeout" is 30 secounds
+A consumer could call the "ChangeMessageVisibility" API to get more time.
+
+***
+SQS - Dead Letter Queues
+If a consumer fails to proecss a message within the visibility time, We can set threshold of how many times a message can go back to the queue
+After the MaximumRecieves threshold is exceeded the messages goes into the DeadLetterQueue(DLQ)
+Keep message retention period for 14 days to ensure it process without fail before deletion
+Its Usefull for "Debugging"
+
+SQS Queue we have seperate SQS queue service, and also DLQ will have seperate SQS DLQ to see the recieved messages from SQS service.
+
+SQS - Delay Queue
+Delay message (consumer don't see it immediately) upto 15 minutes
+Default is 0 secounds (message is available right away)
+
+SQS - Long Polling
+When a consumer requests messages from the queue, it can optionally "wait" for messages to arrive if there are none in the queue
+Its called Long Polling.
+
+Long polling decrease the number of API calls made to SQS while increasing the efficiency and latency of your application.
+Long polling is preferable to Short Polling
+Long Polling can be enabled at the Queue level or at the API level using "WaitTimeSecounds"
+
+SQS Extend Clinet:
+Message limit is 256kb, how to senf large messages eg 1GB
+Using the "SQS Extended Client(Java Library)"
+
+SQS - Must Know API
+CreateQueue(MessageRetentionPeriod), DeleteQueue
+PurgeQueue: delete all the messages in queue
+SendMessage (DelaySecounds), ReceiveMessage, DeleteMessage
+MaxNumeberOfMessages: default 1 max 10 (for ReceiveMessage API)
+ReceiveMessageWaitTimeSecounds: Long Polling
+ChangeMessageVisibility: chage the message timeout
+
+Amazon SQS - FIFO Queue
+Its ordering of messges in the Queue
+Limited Throughput: 300msg/s without bacthing, 3000msg/s with
+Exactly-once send capability
+
+***
+SQS Queue Name should be = demoqueue.fifo
+SQS Advanced concepts are
+* If we use MessageGroupID in an SQS FIFO queue, you will have one consumer and all messages are in ordering
+* If we specifiy different values for MessageGroupID, Each group ID can have different consumer(parallel processing).
+
+B) SNS Model
+
+The "event producer" only sends message to one SNS topic
+As many "event receivers" (subscription) as we want to listen to the SNS topic notifications
+Subscribers can be:
+SQS, HTTP/HTTPS, Lamdba, Emails, SMS Messages, Mobile Notifications
+
+SNS Integrates with lot of AWS Services
+Many AWS services can send data directly to SNS for notifications
+Cloudwatch, ASG, S3 bucket, CloudFormation, etc
+
+Topic Publish (using the SDK) and Direct Publish (for Mobile apps SDK)
+
+Encryption SNS:
+In-flight encryption using HTTPS API
+At rest encryption using KMS keys
+Client-side encryption if the client wants to perform encryption/decrption itself
+
+Access Controls: IAM policies to regulate access to the SQS API
+
+SQS Access policies(similar to S3 bucket policies)
+Usefull for cross-account access to SQS queues
+Usefull for allowing other services (SNS, S3 ...) to write to an SNS topic
+
+C) Kinesis 
+Make it easy to collect, process and analyze streaming data in real-time.
+Ingest real-time data such as: Application logs, Metrics, Website clickstreams, IoT telemtry data.
+
+Kinesis Data Streams: capture, process and store data streams
+Kinesis Data Firehouse: Load data streams into AWS data stores
+Kinesis Data Analytics: analyze data streams with SQL or Apache Flink
+Kinesis Video Streams: capture, process and store video streams
+
+
+1. Kinesis Data Streams:
+               Record                              Record
+Applications   ------->     Kinesis data streams   ------>   Consumer(Lambda or Data firehose or data analytics)
+    Here record = partition key and data blob    here record = partition key, sequence no and data blob
+	
+Partition key is a device id, which sends data.	
+		
+Billing is per "SHARD" provisioned, can have as many shards as you want
+Retention between 1 day to 365 days
+Ability to reprocess data
+Once data is inserted in Kinesis, it can't be deleted ("Immutability")
+Data that shares the same partition goes to the same shard (Ordering)
+
+Kinesis Producers:
+Puts data records into data streams
+Data records consists of:
+* Sequence number(unique partition key within shard)
+* Partition key (must specify while put records into stream)
+* Data blob (upto 1 Mb)
+Producers
+AWS SDK: simple producer
+Kinesis Producer Library: java, batch, compression, 
+Write Throughput: 1 MB/sec or 1000 records/sec per shard
+whenever Provisioned Throughput Exceeded, It retries with "Exponential Backoff"
+
+Kinesis Consumers:
+Get deta records from data streams and process them
+Like AWS Lambda, Kinesis Data Analytics, Kinesis Data firehose
+Types:
+Shared Fan out Consumer - Poll  (minimize cost)
+Enhanced Fan-out Consumer - Push (maximum cost)
+
+Kinesis Client Library:
+A java Library that helps read record from kinesis Data stream with distributed applications sharing the read workload
+Each shard is to be read by only one KCL instance
+KCL can run on EC2, Elastic Beanstalk, and on-premises
+
+2. Kinesis Data Firehouse:
+Fully Managed service, no administration, automatic scaling, serverless
+Pay only for data going through Firehose
+Near Real Time
+Which load the data into AWS and other 3rd party destiantions
+            Producers                                                                         Destinations
+Application, client, Producers, Kinesis Data streams----> Kinesis Data Firehouse ---> Amazon s3, Amazon Redshift, Amazon Elastic search and 3rd part destinations
+
+*****
+      Kinesis Data Streams                        Kinesis Data Firehose
+
+* Streaming service for ingest at scale      * Load Streaming data into S3/ Redshift/ ES/ 3rd party
+* Real Time                                  * Near real time
+* Data storagea for 1 to 365 days            * No data storage
+
+3. Kinesis Data Analytics (SQL Application)
+Perform real-time analytics on Kinesis streams using SQL
+Fully managed, no servers to provisioned
+Real time analytics, Automatic scaling
+Use cases: Time-series, Real-time dashboards, Real-time metrics
+
+
+    --- SQS ---                    --- SNS ---                  --- Kinesis ---
+* Consumer "pull data"   * Push data to many subscribers  * standard: pulldata (2MB per shard), Enhanced-fan out: push data(2MB per shard per consumer)
+* Data is deleted after  * Data is not persisted(lost if  * possibility to replay data
+being consumed             not delivered)                 * Meant for real-time big data, analytics and ETL
+* No need to provision   * Pub/Sub model                  
+throughput               * No need to provision throughput * Must provision throughput
+* Ordering gurantess only * Fifo capability for SQS FIFO  * Ordering at shard level
+on FIFO queues            * Integrates with SQS for fan-out architecture pattern
+
+
+Summary
+sns + sqs fan out pattern: Send same message to 3 different applications
+capacity limits of a kinesis data stream are defined by the number of shards within the data stream
+Kinesis data stream uses the partition key associated with each record to determine which shard data record belongs to.
+SQS Extended Client library, helps to send default data limit 256kb to 1 GB.
+Kinesis client library, each shard read only by one KCL instance, if you have 10 shard then maximum KCL instances you can have is 10.
+
+2. ----------- AWS Serverless: Lambda -----------
+Serverless is a new paradigm in which the developers don't have to manage servers anymore.
+Intially serverless == Faas (Function as a service)
+serverless was pioneered by AWS lambda but now also includes anything  that,s managed "databases", "messaging", "storage" etc
+Serverless does not mean there are no servers, it means you dont manage provision see them.
+
+AWS Lamdba, Dynamo DB, AWS Cognito, AWS API Gateway, Amazon S3
+SNS&SQS,Kinesis Data Firehouse, Aurora serverless, step functions and Fargate
+
+Amazon EC2                          Lambda
+Virtual servers in the cloud   Virtual Functions - no servers to manage
+limited by RAM and CPU         Limited by time - short executions
+Continously running            Run on-demand
+scaling means intervetion      Scalaing is automated
+to add/remove servers 
+
+Lambda pay per request and compute time
+First 1 million requests are free, and 0.20$ for 1 million request afterwards
+It usually very cheap ti run AWS lambda so its very popular.
+
+Integrated with the whole AWS suite of services
+It supports: Node.js, Python, java, C#, Ruby, custom runtime API, Lambda Container Image
+
+Lambda synchronous Invocations:
+Synchronous: CLI, SDK, API Gateway, Application Load balancer
+   Result are returned right away
+   Error handling must happen client side(retries, exponential back off)
+
+synchronous Invocations services list are:
+a) User Invoked:
+   Elastic Load balancing
+   Amazon API Gateway
+   Amazon Cloudfront
+   Amazon S3 Batch
+
+b) Service Invoked
+   Amazon cognito
+   AWS Step Functions
+   
+c) Other services
+   Amazon lex
+   Amazon alexa
+   Amazon Kinesis DataFirehouse
+   
+ELB: Supports Lambda functions as a target for an Applications Load Balancer
+now ALB invoke lambda function to serve HTTP(S) requests
+
+Lambda@Edge :
+Deploy Lambda functions alongside your CloudFront CDN
+You don't manage servers, lambda is deployed globally
+pay for what you use.
+
+Lambda - Asynchronous Invocations:
+S3, SNS, CloudWatch Events ....
+The events are placed in an Event Queue
+
+Lambda attempts to retry on errors, make sure processing is idempotent
+If function is retried, you will see duplicate logs entries in Cloudwatch Logs
+Asynchronous invocations allow you to speed up the processing if you don't need to wait for the result.
+
+Asynchronous Invocations - services list:
+Amazon Simple storage service
+Amazon Simple notification service
+Amazon CLoudwatch Events/EventBridge
+AWS CodeCommit
+AWS Codepipeline
+
+Lambda and CloudWatch Events:
+Lambda and S3 Event Notifications:
+
+Lambda - Event source Mapping:
+
+a) Kinesis Data streams & DynamoDB streams
+One lambda invocation per stream shard
+If you use parallelization, up to 10 batches processed per shard simulatenously
+
+b) SQS Standard:
+Lambda adds 60 more instances per minute to scale up
+Up to 1000 batches of messages processed simulatenously
+
+c) SQS FIFO:
+Messages with the same GroupID will be processed in order
+The lambs function scales to the number of active messages groups
+
+Lambda Destinations:
+From Nov 2019 onwards can configure to send result to a destination.
+Asynchronous invocations: can define destiantion for success and failed event
+SQS, SNS, Lambda and Eventbridge bus
+
+Note: AWS recommends use "Destinations" isntead of DLQ 
+
+Lambda Logging and Monitoring:
+AWS Lambda execution logs are stored in AWS Cloudwatch logs
+AWS lambda metrics are displayed in AWS Cloudwatch metrics
+
+***
+Lambda Tracing with X-Ray:
+Enable in Lambda configuration
+Runs the X-Ray daemon for you
+Use AWS X-Ray SDK in code
+IAM proper execution role: AWSXRayDaemonWriteAccess
+Environment variables to communicate with X-Ray
+_X_AMZN_TRACE_ID: contains the tracing header
+AWS_XRAY_CONTEXT_MISSING: by default, LOG_ERROR
+AWS_XRAY_DAEMON_ADDRESS: The X-Ray Daemon IP_ADDRESS:PORT
+
+
+Lambda by Default:
+By default, your lambda function is launched outside your own VPC(in an AWS-owned VPC)
+Therefore it cannot access resources in your VPC(RDS, ElastiCache, internal ELB etc)
+
+Lambda in VPC:
+You must define VPC ID, the subnets aand the security groups
+Lambda will create a ENI in your subnets
+AWSLambdaVPCAcessExecutionRole
+***
+Deploying a Lambda function in a public subnet does not give it internet access or a public IP.
+Deploying a Lambda function in a private subnet gives it internet access if you have a NAT Gateway Instance
+You can use VPC Endpoints to privately access AWS services without a NAT.
+
+***
+Lambda Function Configuration:
+RAM - 	From 128MB to 10Gb in 1MB increment
+If your Application is CPU-bound (Computation heavy), Increases RAM
+Ideal situation for Lamba Service - default 2 secounds, maximum is 900 secounds (15 minutes)
+***
+Good Approach are :
+import os
+DB_URL = os.getenv("DB_URL")
+db_client = db.connect(DB_URL)
+
+def get_user_handler(event, context):
+    user = db_client.get)(user_id = event["user_id"])
+	return user
+
+lambda Functions /tmp space :
+if you lambda function needs to download big file or needs disk space to perform operations needed "/tmp", maximum capacity of 512MB.
+
+Lambda Concurrency and Throttling:
+The number of requests that your function is serving at any given time, when your function is invoked.
+Lambda allocates an instance of it to process the event, when the function code finishes running, it can handle another request
+
+Lambda Function Dependencies:
+If you lambda function depends on external libraries for example AWS X-Ray SDK, database clients etc...
+you need to install packages alongside your code and zip it together.
+Upload the Zip id less than 50MB else use S3 first.
+
+lambda and CloudFormation
+simple way Inline
+Through S3 (you must store the lambda zip in S3, and mention s3 properties)
+
+Lambda Layers:
+Custom runtimes, Ex: C++ , Ex: Rust
+External Dependencies to re-use them
+
+Lambda Container Images:
+as like Docker Images they function for lambda
+
+Lambda version are immuntable(once pushed we cant modify code or configurations)
+aws lambda "ALIASES" are mutable, aliases cannot reference aliases.
+Aliases enable blue green deployment by assigning weights to lambda functions
+
+Lambda & CodeDeploy:
+CodeDeploy can help you automate traffic shift for lambda aliases
+Grow traffic every N minutes untill 100%
+can create pre & post traffic hooks to check the health of the lambda fucnition
+***
+Lambda Limits to know - Per region
+Execution :
+Memory allocation 128MB - 10GB (1MB increments)
+Maximum execution time: 900 secounds (15 minutes)
+Environment variable 4kb
+
+Deployment:
+Lambda fucnition deployment size (compressed.zip) upto 50MB
+size of uncompressed deployment (cod + dependencies) upto 250MB
+environment variable 4kb
+
+
+
+
+
+
+
+
+
+
+

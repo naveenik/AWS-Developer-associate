@@ -1,0 +1,448 @@
+Modules:
+1. CloudFront
+2. ECS, ECR and Fargate in AWS
+3. Elastic BeanStalk
+4. AWS CICD
+
+1. ---------- CloudFront ---------------
+Content Delivery Network, Improves read performance, content is cached at the edge.
+It has 216 Points of presence globally, DDos Protection, Integration with shield, AWS Web application firewall
+
+Cloudfront Origins:
+S3 Bucket
+For distributing files and caching them at the edges.
+Enhanced security with Cloudfront Origin access Identity(IAM role for CLoudfront)
+
+Custom Origin (HTTP):
+Application load balancer
+EC2 Instance
+S3 Website(must first enable the bucket as a static S3 website)
+
+CloudFront - S3 as an origin
+User(Client) ---> Edge location ----> S3 bucket (OAI + S3 bucket policy ) then response back to Edge location 
+
+Cloudfront - ALB or EC2 as an origin
+In EC2 instance should be public and it access the edge location Ip to response
+In ALB, security group all Edge location IP to communication, backend EC2 can be private
+
+Cloudfront Geo Restriction
+We can restrict who can access your distribution both whitelist and restriction of countries
+The "country" is determined by 3rd party GEO-IP database
+
+CloudFront                               S3 Cross Region Replication
+
+* Global Edge network                    * Must be setup for each region you want to replicate
+* Files are cached for a TTL             * Files are updated in real time and Read only
+* Great for static content that must be  * Great for Dynamic content that needs to be available at low latecny in  few regions
+  available everywhere
+
+CloudFront Caching based on (Headers, Session cookies, Query string parameter)
+CloudFront Signed URLs are commonly used to distribute paid content through dynamic generated signed URLs
+CloudFront Signed Cookies are used to serve hundreds of private files by your Cloudfront Distribution.
+CloudFront Invalidation for to propogate immediatelty cloudfront distribution
+
+2. ---------- ECS ECR and Fargate in AWS ---------------
+
+Docker is software delivery platform where Apps run
+Docket image is build and stored in Docker Private reop or ECR (Amazon Private repo for Docker images)
+* ECS "Classic": provision EC2 Instances to run containers onto
+* Fargate: ECS Serverless, no more EC2 to provision
+* EKS: Managed Kubernets by AWSs 	
+
+ECS Clusters : are logical grouping of EC2 Instances
+ECS Task definitions : are metadata in JSON form to tell ECS how to run a Docker Container
+It contains crucial information (Image Name, Port Binding for container and hosts, Memory and CPU required, Enviornment variables, Networking Information)
+***
+ECS Task Role: Is the IAM Role used by the ECS task itself, use when your container wants to call other AWS services like S3, SQS, DB etc.
+Application load balancer with dynamic port forwarding
+path: /etc/ecs/ecs.config where the ECS configuration are enabled
+
+ECR:
+It is AWS Docker Image private repository, Access is controlled through IAM.
+
+AWS CLI v1 login command 
+$(aws ecr get-login --no-include-email --region eu-west-1)
+
+AWS CLI v2 login command
+aws ecr get-login-password --region eu-west-1 | docker login --username AWS -- password-stdin 1234567890.dkr.ecr.eu-west-1.amazonaws.com
+
+docket push and pull
+docker push 1234567890.dkr.ecr.eu-west-1.amazonaws.com/demo:latest
+docker pull 1234567890.dkr.ecr.eu-west-1.amazonaws.com/demo:latest
+
+Fargate:
+Its all serverless
+We dont provision EC2 Instances
+we just create task definitions, and AWS will run our container for us
+To scale, just increase the task number. Simple no more EC2
+
+               ECS IAM Roles Deep Dive:
+EC2 Instance Profile:                              ECS Tasks Role:
+Used by the ECS agent                         Allow each task to have specific roles
+Make API calls to ECS Service                 Us different roles for the different ECS service you run
+Send Container logs to CLoudwatch Logs        Task role is defined in the TASK DEFINITION
+Pull Docker image from ECR
+
+ECS Task Placement process:
+* Identify the Instance that satusfy the CPU, memory and port requirements in the task definition
+* Idneitify the Instances that satisfy the placement constraints
+* Identify the Instance that satisfy the placement strategies
+* select the Instances for task placement 	
+
+
+ECS Task Placement strategies (3 methods)
+1. Binpack
+2. Random
+3. Spread
+
+Binpack                                   Random                                            Spread
+* Place tasks based on the least      * Place the task Randomly on EC2 Instance          * Place the task evenly based on the specific value
+  available amount of CPU memory
+
+ECS Task Placement Constraints
+1. distinctInstance: place each task on a different container instance
+2. memberOf: places task on instacnes that satisfy the expression
+
+ECS - Auto Scaling Group
+* CPU and RAM is tracked in cloudwatch at the ECS service level
+* TargetTracking: target a specific average CloudWatch Metric
+* StepScaling: scale based on CloudWatch alarms
+* ScheduledScaling: based on predictable changes
+Cluster Auto scaling though capacity Providers
+
+***
+ECS service scaling(task level) =! EC2 Auto Scaling(instance level)
+
+ECS Data volumes:
+
+1. EC2+EBS volume
+The EBS volume is already mounted onto the EC2 Instances.
+Problem: If your task moves from one EC2 Instance to another one, 
+         It won't be the same EBS volume.
+
+2. EC2+EFS 
+Ability to mount EFS volumes onto EC2 tasks and Fargate.
+Fargate + EFS = serverless + data storage wihtout managing servers
+
+3. Bind Mounts sharing data between containers
+Work for both EC2 Tasks and Fargate tasks
+Useful to share an ephemeral storage between multiple containers part of the same ECS task
+Great for "sidecar" container pattern, where sidecar can be used to send logs to another destination		 
+
+3. ------ ElasticBeanstalk -------
+
+Developer problems on AWS:
+* Managing Infrastructure
+* Deploying code
+* Configuring all the databses, load balancers etc
+* scaling concerns
+
+Most web apps have the same architecture(ALB + ASG)
+All the developers want is for their code to run
+Thats the component comes into the picture about Elastic BeanStalk
+
+ElasticBeanstalk is a developer centric view of deploying an application on AWS
+It uses all the components we have seen before: EC2, ASG, ELB, RDS etc
+Automatically handles capacity provsioning, load balancing, scaling, application health monitiring, instance configuraiton
+BeanStalk is free but you have to payfor the underlyig resources
+
+ElasticBeanstalk components:
+Application - collection of ElasticBeanstalk components (enviornments, versions, configurations etc)
+Application version: An iteration of your code
+Enviornment: 
+* collection of AWS resources running an application version
+* Tiers: web server Enviornment Tier & Worker Enviornment Tier
+* You can create multiple enviornments (Dev, test and Prod)
+
+                  | ------------------------------ |
+                  |                                |
+				  <                                >
+create env ---> Upload ver ---> Launch Env ---> Manage Env
+
+ElasticBeanstalk Supported Platforms:
+Go, Java, java with Tomcat, .Net core, Node js, PHP, Python, Ruby
+Package Buider, Single Container Docker, Multi-Container Docker, preconfigured Docker
+
+Web Server Tier vs Worker Tier
+
+Web Enviornment: where Elb route the traffic to backend with ASG support
+Tier Enviornment: SQS Queue will be used to route traffic to backend with ASG support
+* Scale based on number of SQS messages
+* Can push messages to SQS Queue from another Web server Tier.
+
+Once Load balancer type set, we can't modify it, it leaves same as entire lifecycle.
+
+ElasticBeanstalk Deployment Modes:
+* Single Instance {great for dev} - (1 instance connected to db, instance elastic ip will be dns)
+* High Availability with load balancer {great for Prod} - (Alb connected to ec2 instances and its connected to db, alb wil be dns)
+
+Update options:
+* All at once(Deploy all in one go) - fastest, but instances aren't available to serve traffic for a bit(downtime). no cost
+* Rolling - Update a few instances at a time (bucket), and then move onto the next bucket once the first bucket healthy. no cost
+* Rolling with additional batches - Like rolling, but spins up new instances to move batch (But old application is still available) small additional cost
+* Immutable - Spins up new instances in a new ASG, deploys version to these	instances, and then swaps all the instances when everything is healthy.double cost
+
+Blue - Green Deployment is not ElasticBeanstalk Feature, its manual task.
+Another ElasticBeanstalk Deployment is Traffic splitting known as canary testing.(Automatic deployment splits the traffic few percentage intially, then switch complete.
+If deployment fails trigger to older version quickly)
+
+Elastic BeanStalk CLI called "EB cli" which makes working with BeanStalk from CLI easier.
+Basic commands are: eb create, eb status, eb health, eb events, eb logs, eb open, eb deploy, eb config, eb terminate.
+
+Elastic Deployment process:
+requirement.txt for python
+package.json for node.js
+
+Pakage code as zip and describe dependencies.
+Then Upload the zip and deploy the Application with EB2
+
+BeanStalk lifecycle Policy:
+We can store at most 1000 application versions.
+lifecycle policy:
+a. Based on time
+b. Based on space
+versions that are currently used wont be deleted
+Option not to delete the source bundle in S3 to prevent data loss
+
+ElasticBeanstalk Extensions:
+All the parameter set in the UI can be configured with code using files
+Requirements:
+* In the .ebextensions/ directory in the root of the source code
+* YAML OR JSON format
+* .config extensions (example: logging.config)
+* Able to modify some default settings using: option_settings
+* Ability to add resources such as databases, elasticcache, Dynamo DB etc
+Resources managed by .ebextensions get deleted if the enviornment goes away.
+
+ElasticBeanstalk Cloudformation:
+Under the Hood, Elastic BeanStalk relies on CloudFormation.
+
+ElasticBeanstalk Cloning:
+Clone the Enviornment with the exact same configuration
+Usefull for deploying a test version of your application.
+Load Balancer type and configuration
+RDS database type (but the data is not preserved)
+Enviornment variables
+After cloning an enviornment, you can change settings.
+
+ElasticBeanstalk Migration: Load Balancer
+* After creating an Elastic Beanstalk enviornment, you cannot change the Elastic Load Balancer type(only configuration)
+* To migrate:
+  create a new enviornment with same configuration except LB (can't clone).
+  Deploy your application onto the new enviornment.
+  perform CNAME swap or Route 53 Update.
+
+RDS With ElasticBeanstalk:
+RDS can be provisioned with Beanstalk, which is great for dev/test.
+This is not great for PROD AS THE DATABASES LIFECYCLE IS TIED to Beanstalk enviornment lifecycle.
+The best for prod is to seperately create an RDS database and provide our EB application with connection string.
+
+* create a snapshot of RDS (as a safegaurd)
+* Go the RDS console and protect the RDS database from deletion
+* Create a new Elastic Beanstalk enviornment, without RDS, point your application to existing RDS.
+* perform CNAME swap or Route 53 Update, confirm working
+* Terminate Old enviornment (RDS won't be deleted)
+
+ElasticBeanstalk - Single Docker:
+Run your application as a single docker container
+Either provide:
+  Dockerfile
+  Dockerrun.aws.json
+Beanstalk in single Docker Container Does not use ECS
+
+ElasticBeanstalk - Multi Docker Container:
+Multi Docker helps run multiple conatiner per EC2 instance in EB.
+This will create you,
+  ECS Cluster
+  EC2 Instances, configured to use ECS cluster
+  Load Balancer
+  Task definitions
+ 
+Requires a config Dockerrun.aws.json at the root source code.
+Dockerrun.aws.json is used to generate the ECS task definition
+Your docker images must be pre-built and stored in ECR for example
+
+Elastic BeanStalk and HTTPS:
+Load the SSL certificate onto the load balancer
+Can be done from the console (EB console, load balancer configuration)
+can be done from the code: ebextensions/securelistener-alb.config
+SSL certificate can be provisioned using ACM
+Must configure a security group to allow 443 port.
+
+Configure redirect HTTP to HTTPS
+
+***
+ElasticBeanstalk Custome Platform:
+* custom plaform are very advanced, they allow to define from scratch.
+  Operating systems
+  Additional software
+  Scripts that BeanStalk runs on these platforms
+Use app: app language incompataible with Beanstalk and doesn't use Docker
+* To create our own platform
+  Define AMI using platform.yaml files
+  Build that platform using the packer software (open source tool to create AMIs)
+* Custom Platform VS Custom Image:
+  custom image is to tweak an EXISTING BEANSTALK platform(Python, Node.js)
+  custom platform is to create an ENRIRELY NEW BEANSTALK platform.
+  
+4. ---------- AWS CICD ---------------
+
+bitbucket : n.kumara@rethink.de
+username: naveenbitbucket
+
+In AWS CI-CD, the process from code commit to deploy the application to different stage will take place in Automation.
+To reduce the human intervention errors.
+
+AWS CodeCommit - Storing the code
+AWS CodePipeline - Automating our pipeline from code to Elastic Beanstalk
+AWS CodeBuild - Building and testing our code
+AWS Codedeploy - Deploying the code to EC2 instance or aws lambda or ECS(not Elastic beanstalk)
+AWS codestar - manage software developement activities in one place
+AWS CodeArtifact - store, publish and share software packages
+AWS Codeguru - automated code reviews using machine leanring
+
+a) AWS CodeCommit:
+version control is the ability to understand the various changes at that happened to the code over time.
+All these are enabled by using a version control system such as GIT.
+AWS Codecommit is private git repositories
+Integrated with jenkins, AWS codecommit, and other CI tools
+
+Both SSH keys and HTTPS GIT CREDENTIALS support for AWS codecommit.
+
+b) AWS CodePipeline:
+Visual workflow to orchestrate your CICD
+Each Stage can have sequential actions and/or parallel actions
+Example: Build --> Test --> Deploy --> Load Testing
+Manual Approval can be defined at any stage for reviewing as double cross check
+
+Codepipeline - Troubleshooting:
+* For Codepipeline Pipeline/action/stage Execution state changes
+* Use CloudWatch Events to create events for failed pipelines, cancelled stages
+* If Codepipeline fails a stage, your pipeline stops, and you can get information in the console
+* If Pipeline can't perform an action, make sure the "IAM Service Role" attached does have enough IAM permissions (IAM policy)
+* AWS Cloud Trial can be used to audit AWS API calls
+
+***
+Stages in Pipeline can have multiple action groups, not the multiple stage in action.
+sequential or paralled actions group can be defined
+
+c) AWS Codebuild:
+sosurce - codecommit, s3, bitbucket and github
+BUILD INSTRUCTIONS: code file buildspec.yml or insert manualy in console
+Use cloudwatch metrics to monitor build statistics
+use cloudwatch events to detect failed builds and trigger notifications
+use cloudwatch alarms to notify if you need "thresholds" for failure
+     
+	CodeCommit                     Codebuild Container                                 S3 Bucket
+code + buildspec.yml   ---> CodeBuild Container runs code with buildspec.yml  ---> store artifacts in S3 bucket
+
+buildspec.yml   ---- this file define the Codebuild procedure
+---------------------------------------------------
+version: 0.2
+env:
+  variables:
+    JAVA_HOME: "/usr/lib/java-8-openjdk-amd64"
+  parameter-stores:
+    LOGIN_PASSWORD: /CodeBuild/dockerLoginPassword
+
+phases:
+  install:
+    commands:
+	  - echo "Entered the Install phase..."
+	  - apt-get updayte -y
+	  - apt-get install -y maven
+  pre_build:
+    commands:
+	  - echo "Entered the pre_build phase..."
+	  - docker login -u User -p $LOGIN_PASSWORD
+  build:
+    commands:
+	  - echo "Entered the build phase"
+	  - echo "Build started on 'date'"
+	  - mvn install
+  post_build:
+    commands:
+	  - echo "Entered the post_build phase..."
+	  - echo "Build completed on 'date'"
+artifacts:
+  files:
+    - target/messageUtil-1.0.jar
+	
+caches:
+  paths:
+    - "/root/.m2/**/*"
+----------------------------------------------
+  
+CodeBuild - Local build
+* In case of need of deep troubleshooting beyound logs
+* Run codedeploy on your desktop (after installing Docker)
+* For this, leverage codebuild agent
+
+Codebuild - Inside VPC
+* By default, your codebuild containers are launched outside your VPC
+  It cannot access your VPC resources
+* you need to specift VPC configuration
+  VPC Id
+  Subnet Id
+  Security Group Id
+* Then build can access your vpc resourecs ex: Integration tests, data query, internet load balancers etc
+
+d) AWS Codedeploy
+
+Each EC2 Instance/on-premises server must be running the codedeploy agent
+EC2 Instance will run the deployment instructions in appspec.yml
+
+appspec.yml
+-------------------------
+version: 0.0
+os: linux
+
+files:
+  - source: Config/config.txt
+    destination: /webapps/config
+  - source: source
+    destinations: /webapps/config
+	
+hooks:
+  BeforeInstall:
+    - locations: Script/UnzipResourceBuild.zip
+	- locations: Script/UnzipDataBundle.zip
+  AfterInstall:
+    - locations: Script/RunResourcesTests
+	  timeout: 1800
+  ApplicationStart:
+    - location: Script/RunFunctionalTest
+	  timeout: 3600
+  ValidateService:
+    - locations: Script/MonitorService
+	  timeout: 3600
+	  runas: codedeployuser
+-------------------------
+ValidateService is important in this file
+
+CodeDeploy - Deployment type
+a) In place Deployment
+b) Blue-Green Deployment
+
+e) AWS CodeStar
+Its cloud based service for creating, managing and working with software development projects on AWS.
+You can quickly develop, build and deploy applications on AWS with an AWS Codestart project.
+
+CodePipeline builds, tests and deploys your code every time there is a code change.
+
+f) AWS CodeArtifact
+Software packages depend on each other to be built(code dependencies) and new ones are created.
+Storing and retrieving these dependencies is called artificat management.
+
+Works with common depedency management tools such as Maven, Gradle, npm, yarn, twine, pip and NuGet.
+Developers and CodeBuild can then retrieve dependencies stright from code Artifact.
+javascript - npm, python - pip, .NET - NuGet, Java - Maven.
+
+g) AWS CodeGuru
+Its Ml- powered service for automated code reviews and application performance recommendations
+CodeGuru Reviewer: Automated code reviews for static code analysis
+codeGuru Profiler: recommendations about application performance during runtime(Production)
+
+cloudwatch event rule when build fails 
+
+

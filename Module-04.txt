@@ -1,0 +1,447 @@
+Modules:
+1. Cloud Formation
+2. Cloud Monitoring
+
+
+1. ---------- Cloud Formation ---------------
+All this manual work will be very tough to reproduce
+In another region
+In another AWS account
+Within the same region if everything was deleted
+
+Infrastructure as a code comes into picture where we deploy/update/create/delete the infrastructure
+Its Declarative approach
+
+Templates components (Cloudformation Builing Blocks):
+* Resources: Your aws resources are declared in the template
+* Parameters: The dynamic inputs for your template
+* Mappings: The static variables for your template
+* Outputs: References to what to be created
+* Conditionals: List of conditions to perform resource creation
+* Metadata
+
+just-ec2.yaml
+Resources:
+  MyInstance:
+    Type: AWS::EC2::Instance
+	properties:
+	  AvailabilityZone: us-east-1a
+	  ImageId: ami-a4c7edb2
+	  InstanceType: t2.micro
+	  
+a) Resources:
+
+Resource are the core of your CloudFormation template(Mandatory)
+They represent the different AWS Components that will be created and configured
+Resource type identifiers are of the form
+AWS::aws-product-name::data-type-name
+
+FAQ for resources:
+
+a) Can i Create a dynamic amount of resources?
+No, you can't. Everything in the cloudformation template has to be declared.
+You can't perform code generation here.
+
+b) Is every AWS service supported?
+Almost, Only a select few niches are not there yet
+You can work around that using AWS Lambda Custom Resources
+
+b) Parameters:
+
+Parameters are the way to provide inputs to your AWS Cloudformation template.
+when to use?
+Cloudformation resource configuration likely to change in the future.
+How to reference a parameter?
+The shorthand for this in YAML is !Ref
+
+DbSubnet1:
+  Type: AWS::EC2::Subnet
+  Properties:
+    VpcId: !Ref MyVpc
+	
+Pseudo Parameters:
+AWS Offers us Pseudo parameters in any CloudFormation template
+      Reference value                Example Return value
+  AWS::AccountId                        1234567890
+  AWS::NotificationARNs                 {arn:aws:sns:us-east-1:1234567890:my-topic}
+  AWS::Region                           us-east-1
+  
+c) Mappings:
+Mappings are fixed variables within your CloudFormation template
+They are very handy to differentiate between different enviornments(dev vs prod), regions(different regions) etc
+All the values are hardcoded within the template
+
+Ex:
+
+RegionMap:
+  us-east-1:
+    "32": "ami-6411e20d"
+	"64": "ami-7a11e213"
+  us-west-1:
+    "32": "ami-c9c7978c"
+	"64": "ami-cfc7978a"
+  eu-west-1:
+    "32": "ami-37c2f643"
+	"64": "ami-31c2f645"
+	  
+When to us mapping vs parameter?
+Mappings are great when you know in advance all the values that can be taken
+Region, AvailabilityZone, AWS Account, Enviornment, Etc...
+
+Use parameters when the values are really user specific
+
+Accessing Mapping values
+. we use Fn::FindInMap to return a named value from a specific key
+. !FindInMap [ MapName, TopLevelKey, secoundLevelKey ]
+
+ex:
+Resources:
+  myInstance:
+    Type: "AWS::EC2::Instance"
+	Properties:
+	  ImagedId: !FindInMap [RegionMap, !Ref "AWS::Region", 32]
+	  InstanceType: m1.small
+
+d) Outputs:
+The Output section declares Optional outputs values that we can import into other stacks
+They are very usefull for example if you define a network cloudformation and output the variables such as VPC ID and Subnet ID.
+***
+You can't delete the CloudFormation stack if its outputs are being referenced by another CloudFormation stack
+
+output file example:
+Outputs:
+  StackSSHSecurityGroup:
+    Description: The SSH Security Group for our company
+	value: !Ref MyCompanyWideSSHSecurityGroup
+	Export:
+	  Name: SSHSecurityGroup
+	  
+e) Conditions:
+Conditions are used to control the creation of resources or outputs based on a condition
+Each condition can reference another condition, parameter value or mapping
+
+condition file example:
+Conditions:
+  CreateProdResources: !Equals ( !Ref EnvType, prod )
+------------------------
+Logic can be anything
+Fn:: And
+Fn::Equals
+Fn::If
+Fn::Not
+
+Using a Condition
+Conditions can be applied to resources / outputs etc...
+Resources:
+  MountPoint:
+    Type: "AWS::EC2::VolumeAttachment"
+	Condition: CreateProdResources
+-----------------------
+f) Intrinsic Functions:
+Ref, Fn::GetAtt, Fn::FindInMap, Fn::ImportValue, Fn::Join, Fn::Sub and Conditions Funstions (Fn::If, Fn::Not, Fn::Equals etc)
+
+Fn::Ref function can be leveraged to reference
+parameters = return the value of parameter
+resources  = returns the Physical ID of the underlying resources
+
+Fn::GetAtt
+Attributes are attached to any resources you create
+ex:
+Resources:                               NewVolume:
+  myInstance:                              Type: "AWS::EC2::Volume"
+    Type: "AWS::EC2::Instance"             Condition: CreateProdResources
+	Properties:                            Properties:
+	  ImagedId: ami-1234567                  size: 100
+	  InstanceType: t2.micro                 AvailabilityZone:
+	                                           !GetAtt EC2Instance.AvailabilityZone
+											   
+Fn::FindInMap
+Accessing Mapping values
+. we use Fn::FindInMap to return a named value from a specific key
+. !FindInMap [ MapName, TopLevelKey, secoundLevelKey ]
+
+Fn::ImportValue
+Import values that are exported in another templates
+
+Resources:
+  MyInstance:
+    Type: AWS::EC2::Instance
+	properties:
+	  AvailabilityZone: us-east-1a
+	  ImageId: ami-a4c7edb2
+	  InstanceType: t2.micro
+	  SecurityGroups:
+	    - !ImportValue SSHSecurityGroup
+
+Fn::Join
+Join values with a delimeter
+!Join ( delimeter, ( comma-delimeted list of values ))
+
+This creates "a:b:c"
+	!join ( ":" (a, b, c) )
+	
+Fn::Sub or !Sub 
+Its used to substitute variables from a text
+
+Conditions:
+  CreateProdResources: !Equals ( !Ref EnvType, prod )
+
+CLOUDFORMATION ROLLBACKS:
+In Advanced section, we can modify the Rollback options, Be default will rollbak to previous Work in state
+If you disable the Rolback with the help of error log, you ca fix the issue and Update the file again
+
+Stackset: When you Update a stack set, all associated stack instances are Updated throughout all accounts and regions
+CoudFormation Drift: Its used to find the difference between Expected configuration values of stack resources defined in CloudFormation templates.
+Cloudformation reference a template from always S3
+
+
+2. ---------- Cloud Monitoring ---------------
+
+Our Application once Deployed, User's wont care how we did it.
+Users Only look that application is working!
+* Application latency is increasing?
+* Application Outages 
+* Users Contacting the IT department or complaining is not a good outcome
+
+Monitoring in AWS:
+
+a) AWS CloudWatch-
+* Metrics: Collect and track key metrics
+* Logs: Collect, monitor, analyze and store log files
+* Alarms: React in real-time to metric/events
+* Events: Send notifications when certain events happen in your AWS
+
+b) AWS X-Ray:
+* Troubleshooting application performance and errors
+* Distibuted tracing of microservices
+
+c) AWS CloudTrial:
+* Internal monitoring of API calls being made
+* Audit changes to AWS Resources by your users
+
+1. Cloudwatch Metrics:
+Cloudwatch provides metrics for every services in AWS.
+Metric is a variable to monitor(Cpu utlization, Netwrok, etc)
+Metrics belongs to Namespaces
+Metrics have timestamps
+
+EC2 Memmory Usage is by default not pushed(must be pushed from inside the instance as a custom metrics)
+***
+Important: Accepts metric data points two weeks in the past and two hours in the future(make sure to configure your EC2 Instance time correctly)
+
+2. CloudWatch Logs:
+Log groups - arbitary name, usually represnting an application
+Log stream - Instances within application/log files/ containers
+Can define log expiration policies (never expire, 30 days etc)
+Cloudwatch logs can send logs to Amazin S3, Kinesis data stream, Kinesis Data Firehouse, AWS Lambda
+
+Sources
+SDK, Cloudwatch logs agent, cloudwatch unified Agent
+Elastic Beanstalk: Collection of logs from application
+ECS: collaction from containers
+AWS Lambda: collection from function logs
+VPC flow logs: VPC specific logs
+API Gateway: api calls record
+CloudTrial based on filter
+Route53: Log DNS queries
+
+CloudWatch Logs for EC2 Process:
+* By default, no logs from your EC2 Instance machine will go to Cloudwatch
+* You need to run a Cloudwatch agent on EC2 to push the log files you want
+* Make sure IAM permissions are correct
+
+Cloudwatch logs Agent - old version, can only send to Cloudwatch logs
+Cloudwatch Unified Agent - collect additional system level metrics such as RAM, processes etc...
+
+Cloudwatch logs can use filter expressions
+   for example, find a specific IP inside of a log
+   Or count occurences of "ERROR" in your logs
+   Metric filter can be used to trigger alarms
+   
+3. CloudWatch Alarms
+Alarms are used to trigger notifications for any metric
+Various Options (sampling, %, max, min, etc ...)
+Alarm States:
+OK - Evert data is Good
+INSUFFICIENT_DATA - Not enough data for process
+ALARM - Triggered based on condition
+
+Period: Length of time in secound to evaluate the metric
+
+CloudWatch alarm target mainly on EC2 INSTANCE, EC2 AUTO SCALING, AMAZON SNS
+* stop, Termninate, Reboot or Recover an EC2 Instance
+* Trigger Auto scaling Action
+* Send notifications to SNS
+
+4. CloudWatch Events:
+Event pattern: Intercept events from AWS services
+    Example source: EC2 Instnace start, CodeBuild failure, S3, Trusted Advisor
+	Can intercept any API call with CloudTrial Integration
+	
+Schedule or CRON (Example create an event every 4 hour job schedule)
+A JSON payload is created from the event and passed to the target
+* Compute: Lamnda, Batch, ECS task
+* Integration: SQS, SNS, Kinesis Data streams, Kinesis Data warehouse
+* Orchestration: Step Functions, CodePipeline, CodeBuild
+* Maintenance: SSM, EC2 Actions
+
+Amazon EventBridge:
+Eventbridge - Is the next evolution of Cloudwatch Events
+Default event bus - Generated by AWS service
+Partner event bus - receieve event from SaaS service or applications (Zendesk, DataDog, Segment, Auth0 etc...)
+
+Schema Registry allows you to generate code for your application, that will know in advance how data is structured in the event bus.
+
+
+Amazon EventBridge or Cloudwatch Events
+Amazon EventBridge builds upon and extends cloudwatch events
+It uses the same API and endpoint, and the same underlying service infrastructure
+Overtime Cloudwatche Events name will be replcaed as EventBridge.
+
+5. AWS X-Ray:
+It helps developers analyze and debug production, distributed applications, such as those built using a microservice architecture.
+Troubleshooting performace
+Review request behaviour
+Find error and exceptions
+where i am throttled
+
+X-Ray Compatability:
+AWS-Lambda, Elastic Beanstalk, ECS, ELB, API Gateway, EC2 Instance
+
+X-Ray Security:
+IAM for authorization, KMS for encryption at rest
+
+AWS X-Ray how to enable it?
+a. Your code (java, python, Node.js, .NET) must import the AWS X-Ray SDK
+very little code modification needed
+The application SDK will then capture
+* Calls to AWS services
+* HTTP/HTTPS requests
+* Database calls
+* Queue calls
+
+b. Install X-Ray Daemon or enable X-Ray aws integration
+
+AWS X-Ray Troubleshooting
+a. if X-Ray is not working on EC2
+   Ensure the EC2 IAM Role has the proper permissions
+   Ensure the EC2 Instance is running the X-Ray Daemon
+   
+b. To enable on AWS Lambda
+   Ensure it has an IAM Permissions with proper policy(AWS-RayWriteOnlyAccess)
+   Ensure X-Ray is Imported in the code
+
+In ElasticBeanstalk under the .ebextensions/xray-daemon.config
+file need to add and enable XRayEnabled: True
+
+X-Ray Instrumentation in your code
+Instrumentation: means to measure of products, performance diagnose errors, and to write trace information
+To instrument your application code, you use the X-Ray SDK
+example file :
+var app = express();
+var AWSXRay = require('aws-xray-sdk');
+app.use(AWSXRay.express.openSegment('MyApp'));
+
+X-Ray Write API(Used by X-Ray Daemon):
+example file:
+
+Write file
+"Effect": "Allow",
+"Action": [
+	"xray:PutTraceSegments",
+	"xray:PutTelemetryRecords",
+	"xray:GetSamplingRules",
+	"xray:GetSamplingTargets",
+	"xray:GetSamplingStatisticsSummaries"
+],
+"Resource":[
+	"*"
+]
+***
+Above is Write file in GET FILE all action will have GET File only.
+
+X-Ray With ElasticBeanstalk:
+AWS ElasticBeanstalk Platform includes the X-Ray daemon.
+You can run the daemon setting an option in the elastic console or with a configuration file (in .ebextensions/xray-daemon.config)
+Make sure to give your instance profile correct with IAM permissions so that x-ray daemon can function correctly
+Make sure your application code is instrumented with the X-Ray SDK
+
+ECS + X-Ray Integration options:
+ecs cluster: each ec2 instance app container + 1 x-ray daemon
+ecs cluster: each ecc2 instance app container and x-ray daemaon combined for each container
+ecs cluster: (Fargate cluster) Each App container and x-ray daemon 
+***
+Containerport: 2000
+protocol: udp
+links ["xray-daemon"]
+
+6. AWS CloudTrail:
+* Provides governance, compliance and audit for your AWS account
+* Cloudtrial is enabled by default
+* Get an history of API calls made within your AWS account (console, SDK, CLI, AWS services)
+If anything resource deleted or terminated first need to check logs in CloudTrail first
+
+CloudTrail Events:
+a) Management Events:
+   Operations that are performed on resources in your aws account
+   ex: Configure security
+       configuring rules
+	   setting up logging
+   by default, trail are configured to log management events
+   can seperate Read Events and Write Events
+
+b) Data Events:
+   By default data events are not logged (because high volume operations)
+   Amazon S3 object level activity(GetObject, DeleteObject, PutObject)
+   
+c) CloudTrail Insights Events:
+   Enable CloudTrial Insights to detect unusual activity in your account
+      inaccurate resource provisioning
+	  hitting service limits
+	  Bursts of AWS IAM actions
+   It continously analyzes write events to detect unusual patterns
+***
+CloudTrail Events Retention:
+Events are stored for 90 days in CloudTrail.
+To keep events beyound this period, log them to S3 and use athena to query and analyse
+
+CLOUDTRAIL:
+           Audit API calls made by users/service/AWS console
+		   Useful to detect unauthorized calls or root cause of charges
+ClOUDWATCH:
+           Cloudwatch Metrics over time for monitoring
+		   Cloudwatch logs for storing application logs
+		   Cloudwatch Alarms to send notifications in case of unexpected metrics
+		   
+X-RAY:
+     Automated Trace analysis and Central Map Visualization
+	 Latency Error and fault analysis
+	 
+----- Summary -------
+EC2 Instance Standard metric will be collected for Every 5 Minute by default.
+For every 1 minute Enable Detailed Monitoring --- Its Paid service.
+High resolution custom metrics can have minimum resolution of 1 sec.
+
+	 
+		   
+         
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

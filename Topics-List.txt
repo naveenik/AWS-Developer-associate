@@ -1,0 +1,39 @@
+Modules - Notebook 1
+1. Types of Cloud Computing
+2. IAM
+3. Elastic Compute Cloud(EC2)
+4. EC2 Instance Storage
+5. ELB and ASG
+
+Modules - Notebook 2
+1. Database, RDS Encrypyion ans Security
+2. Route 53
+3. VPC 
+4. S3
+5. AWS CLI, SDK, IAM Roles and Policies
+
+Modules - Notebook 3
+1. CloudFront
+2. ECS, ECR and Fargate in AWS
+3. Elastic BeanStalk
+4. AWS CICD
+
+Modules - Notebook 4
+1. Cloud Formation
+2. Cloud Monitoring
+
+Modules - Notebook 5
+1. AWS Integration (SQS, SNS & Kinesis)
+2. AWS Serverless: Lambda 
+
+Modules - Notebook 6
+1. AWS Serverless: DynamoDB
+2. AWS Serverless: API Gateway
+
+Modules - Notebook 7
+1. AWS Serverless: Serverless Application Model(SAM)
+2. Cloud Development Kit (CDK)
+3. Cognito user Pools and Identity
+4. Other serverless: Step Function and App sync
+5. Advanced Identity
+6. AWS Security & Encryption: KMS, Encryption SDK, SSM Parameter store, IAM ans STS

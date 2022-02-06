@@ -1,0 +1,370 @@
+Modules:
+1. AWS Serverless: Serverless Application Model(SAM)
+2. Cloud Development Kit (CDK)
+3. Cognito user Pools and Identity
+4. Other serverless: Step Function and App sync
+5. Advanced Identity
+6. AWS Security & Encryption: KMS, Encryption SDK, SSM Parameter store, IAM ans STS
+
+
+1. ---------- AWS Serverless: Serverless Application Model (SAM) ---------------
+Framework for developing and deploying serverless applications
+All the configurations in YAML code
+Only two commands to deploy to AWS
+SAM can use CodeDeploy to deploy Lmabda functions
+SAM can help you to run Lambda, API Gateway, DynamoDB locally
+
+SAM - Recipe
+Transform Header indicates it's SAM template
+Transform: 'AWS::Severless-2016-10-31'
+Write Code
+   AWS::Serverless::Function
+   AWS::Serverless::Api
+   AWS::Serverless::SimpleTable
+Package & Deploy:
+***
+aws cloudformation package  / sam package
+aws cloudforamtion deploy   / sam deploy
+
+***
+SAM file identification
+Transform: 'AWS::Serverless-2016-10-31'
+
+SAM Policy Templates:
+* List of templates to apply permissions to your lambda funnctions
+Important one -
+S3ReadPolicy: Gives read only permissions to objects in S3
+SQSPollerPolicy: Allows to poll an SQS Queue
+DynamoDBCrudPolicy: Create, read, update and delete operation
+
+SAM - EXAM Summary :
+SAM is built on CloudFormation
+SAM requires the "Transform Header" and "Resources sections"
+Commands to know -
+    sam build: fetch dependencies and create local deployment artifacts
+	sam package: package and upload to amazon S3, generate CF template
+	sam deploy: deploy to CloudFormation
+SAM policy templates for easy IAM policy definition
+SAM is Integrated with CodeDeploy to do deploy to lambda Functions
+
+2. ---------- Cloud Development Kit (CDK) ---------------
+
+Define your cloud infrastructure using a familiar language (javascrpt/typescript, python, Java, .Net)
+Contains high level components called "constructs"
+The code is "compiled" into a CloudFormation template (JSON/YAML)
+
+    CDK                                                    SAM
+serverless focused                                   serverless focused
+Write your template,                                 Write infra in a programming
+declaratively in JSON or YAML                        language js/ts, pyhton, .net
+leverage Cloudformation                              leverages Cloudformation
+
+Finally infrastructure in AWS deployed using programming langauage which you know rather than Cloudformation.
+
+3. ---------- Cognito user Pools and Identity --------------
+
+When you want to give our users(Outside the AWS IAM users) an identity so that they can interact with our application
+a) Cognito User Pools
+    sign in functionality for app users
+	Integrate with API gateway and Application Load balancer
+	
+b) Cognito Identity Pools(Federate Identity)
+   Provide AWS credentials to users so they can access AWS resources directly
+   Integrate with Cognito user pools as an idenitity provider
+   
+c) Cognito sync
+   Synchronised data from device to Cognito
+   Is depreciated and replaced with "APP SYNC"
+   
+       Cognito                                      IAM
+"hundreds of users", "mobile users"            It provides an Identity within AWS IAM users
+"authenticate with sam" provide an identity.
+
+a) Cognito User Pools(CUP)  - User features
+    "CREATE A SERVERLESS DATABASE of user for your web & mobile apps."
+	Simple login: Username (or email)/ password combination
+	Federated Identities: users from Facebook, Google, SAML...
+	Login sends back a JSON Web Token (JWT)
+    Integrate with API gateway and Application Load balancer.
+
+	CUP can invoke a lambda function synchronously on these triggers
+	Authentication Events, Sign-up, Messages, Token Creation
+	
+	Cognito has a Hosted Authentication UI that you can add to your app to handle sign-up and  sign=in workflows
+	we can customise with a custom logo and custom CSS
+	
+b)  Cognito Identity Pools:
+    Get identifies for "users" so they obtain temporary AWS credentials
+	Your identity pool include (login with amazon, facebook, Google, Apple etc)
+	Cognito idenitfy pools allow for unauthenticated(guest) access
+	
+	User access AWS services directly SDK or through API Gateway
+	   The IAM policies applied to the credentials are defined in Cognito
+	   
+	Cognito User Pool                                          Cognito Identity Pool
+* Database of users for your web/mobile app              * Obtain AWS credentials for your users
+* Allows to federate logins through Public social, OIDC  * Users can login through Public Social, Cognito user pool
+* can customize the Hosted UI for authentication         * user can be unauthenticated
+* has trigger with AWS lambdas during Authentication     * users are mapped thorugh IAM roles & policies, can leverage policy variables
+
+CUP + CIP = manage user/ password + access AWS services
+
+c) Congito Sync:
+Deprecated - "use AWS APPSync now" Mainly used for Synchronization
+store preference, configuration, state of app
+cross device synchronization(app platform, IOS , Android)
+
+4.   ----- Other serverless: Step Function and App sync ------
+
+a) Step Function:
+Model your workflows as state machines: Order fullfillment, Data processing
+Visualization of the workflow and the execution of the workflow, as well the history.
+Written in JSON, start workflow with SDK call, API Gateway, Event Bridge etc
+
+Task States:
+Do some work in your state machine
+    invoke a lambda function
+	Run an AWS Batch Job
+	Run an ECS task and wait for it to complete
+	Insert item from DynamoDB
+
+Step Function - states:
+Choice state: Test for a condition to send to a branch(default branch)
+Fail or Succeed state - stop execution with failure or success
+Pass state            - simply pass its input to its output or inject some fixed data
+wait state            - Provide a delay for a certain amount of time or until a specified time/delete
+Map state             - Dynamically iterate steps	
+***
+PARALLEL STATE        - "Begin paraller branches of execution"
+
+Error Handling in Step Functions:
+Any state can encounter runtime error for various functions
+so some of the pre-defined error codes
+States.ALL : matches any error name
+States.Timeout : Task ran longer than TimeoutSeconds 
+States.TaskFailed : execution failure
+
+Step Function Types:
+                     Standarad Workflow              Express Workflow
+Maximum duration          1 year                        5 minutes
+execution start rate     2000 per secound               100000  per secound
+state transition rate    4000 per secound per account   Unlimited
+Execution                Execution can be listed and         Execution can be inspected in cloudwatch
+                         described with step function API,   logs by enabling logging in your state machine
+                         visually debuged through console	
+
+b) App Sync						 
+
+App sync is a managed service that uses "GraphQL"
+GraphQL makes it easy for applications to get exactly the data they need.
+This includes combining data from one or more resources:
+    NoSql data stores, Relational DB and HTTP apis
+	It Integrate with DynamoDB, Aurora, Elasticsearch and others
+Retrieve data in "REAL-TIME WITH WEBSOCKET OR MQTT ON WEBSOCKET"
+It all starts with uploading one "GraphQL schema"
+
+Summary :
+AWS step functions is a low-code level workflow service used to orchestrate AWS services, automate business processes and build serverless applications
+It manages failures, retries, parallelization, service Integrations
+	
+5. ------ Advanced Identity : Security Token service (STS) --------
+
+Allows to grant limited and temporary access to AWS resources (Upto 1 hour)
+
+AssumeRole:              Assume roles within your account or cross account
+GetSessionToken:         for MFA, from a user or AWS account root user
+GetFederationToken:      Obtain temporary credentials for a federal user
+GetcallerIdentity:       Return details about the IAM user or role used in the API call
+DecodeAuthorizationMessage: decode error message when an AWS API is denied
+
+a) Using STS to Assume a Role:
+
+Define an IAM Role within your account or cross-account
+Define which principals can access this IAM Role
+Use AWS STS to retrieve credentials are impersonate the IAM Role you have access to (AssumRole API)
+Temporary credentials can be valid between 15minutes to 1 hour
+
+b) STS with MFA:
+
+Use GetSessionToken from STS
+Appropriate IAM policy using IAM Conditions
+"aws:MultiFactorAuthPresent:true"   ----> policy this will enabled
+Reminder, GetSessionToken returns:
+Access ID, Secret Key, Session Token, Expiration date.
+
+***
+Advanced IAM and S3 Bucket policies:
+* IAM Policies are attached to users, roles, groups
+* S3 bucket policies are attached to buckets
+* When evaluating if an IAM principal can perform an operation X on a bucket, 
+  the union of its assigned IAM policies and S3 Bucket Policies will be evaluated
+  
+   IAM policy + S3 Bucket policy = Total policy Evaluation
+   
+Ex 1: IAM role attached EC2 Instance, authorize RW to "my_bucket"
+      No S3 Bucket Policy Attached  
+	  ===> EC2 instance CAN read and write to "my_bucket"
+	 
+Ex 2: IAM role attached EC2 Instance, authorize RW to "my_bucket"
+      S3 Bucket Policy Attached, explicit deny to the IAM role  
+	  ===> EC2 instance CANNOT read and write to "my_bucket"
+	  
+Ex 3: IAM role attached EC2 Instance, no S3 bucket permissions
+      S3 Bucket Policy Attached, explicit RW allow to the IAM Role  
+	  ===> EC2 instance CAN read and write to "my_bucket"
+
+Ex 4: IAM role attached EC2 Instance, explicit deny S3 bucket permissions.
+      S3 Bucket Policy Attached, explicit RW allow to the IAM Role  
+	  ===> EC2 instance CANNOT read and write to "my_bucket"
+
+Granting a User permissions to 	Pass Role to AWS Services
+* to configure many AWS services you must pass an IAM role to the service
+* For this, you need IAM permission iam:PassRole and iam:GetRole 
+
+AWS Directory services:
+a) AWS managed Microsoft AD: manage users locally, supports MFA for your OWN AD in AWS
+b) AD Connector : Director proxy to redirect to on-premises AD
+c) Simple AD : AD-Compatible managed directory on AWS 
+
+summary :
+AWS STS (Security Token Service) allows you to get cross-account access through the creation of an IAM Role,
+in your AWS account authorized to assume an IAM Role in another AWS account.
+
+6. ----- AWS Security & Encryption: KMS, Encryption SDK, SSM Parameter store, IAM ans STS  -----	
+
+a) Encryption in Flight(SSL): 
+Data is encrypted before sending and decrypted after receiving
+Encryption in flight ensures no MITM(Man in the Middle attack) can happen
+
+b) Server side Encryption at rest
+Data is encrypted after being received by the server.
+Data is decrypted before being sent
+It is stored in an encrypted with the help of "KEY" (usually data key)
+
+c) Client side Encryption:
+Data is encrypted by the client and never decrypted by the server
+Data will be decrypted by a receiving client
+Could leverage Envelope Encryption
+
+AWS KMS:
+Anyitime you hear "encryption" for an AWS service, its most likely KMS
+Easy way to control access to your data, AWS manages keys for us
+Fully integrated with IAM for authorization
+Seamlessly integrated with:
+    Amazon EBS: encrypt volumes
+	Amazon S3: Server side encryption
+	Amazon Redshift/RDS: encryption of data
+	Amazon SSM: parameter store
+	
+KMS - Customer Master Key (CMK) Types
+   a) Symmetric (AES-256 keys)
+   single encryption is used to Encrypt and Decrypt
+   AWS services that are integrated with KMS use symmetric CMKs
+   you never get access to the key unencrypted(must call KMS API to use)
+   
+   b) Asymmetric (RSA & ECC key pair)
+   Public(Encrypt) and Private key (Decrypt)
+   The public key is downloadable, but you can't access the private key unencrypted
+   use case: encryption outside of AWS by users who can't call the KMS API
+   
+Three types of Customer Master Keys:
+AWS Managed service, Default CMK:free
+User Keys Created in KMS: $1 month
+User keys imported: $1 month + pay for API call to KMS ($0.03/1000 calls)
+
+AWS KMS:
+
+Use cases:
+   Databse passwords
+   Credentials to external service
+   Private key of SSL certificates
+
+NEVER EVER STORE YOUR SECRETS IN PLAINTEXT, ESPECIALLY IN YOUR CODE
+Encrypted secrets can be stored in the code/environment variables
+"KMS CAN ONLY HELP IN ENCRYPTING UPTO 4KB OF DATA PER CALL"
+if data > 4kb, use envelope encryption
+KMS Keys are bound to region specific, if you snapshot data to another region you will encrypt with "another key"
+
+
+KMS Key policies:
+Control access to KMS Keys,"similar" to S3 bucket policies
+Default KMS key policy:
+   Created if you don't provide a specific 	Key policy
+   complete access to the key to the root user
+Custom KMS key policy:
+   Define users, roles that can access the KMS key
+   Define who can administer the key
+   usefull for cross-account access of your KMS key
+
+Copying snapshots across accounts:
+Attach a KMS KEY POLICY to authorize cross-account access
+
+Envelope Encryption:
+KMS Encrypt API call has a limit of 4kb.
+If you want to encrypt > 4kb, we need to use "ENVELOPE ENCRYPTION" for encrypting data == "GENERATE DATAKEY API"
+
+KMS Limits:
+When you exceed a request quota, you get a ThrottlingException
+To respond, use exponential backoff
+You can request a Request Quotas increase through "API or AWS SUPPORT"
+
+S3 Encryption for Objects:
+There are 4 methods of encrypting Objects in S3:
+a) SSE-S3: encrypts S3 objects using keys handled & managed by AWS
+b) SSE-KMS: leverage AWS key Management service (KMS) to manage encryption keys
+c) SSE-C: when you want to manage your own encryption keys
+c) Client side encryption
+
+SSE-KMS Deep Dive:
+SSE-KMS leverages the GenerateDataKey & Decrypt KMS API calls
+To perform SSE-KMS, you need:
+    A KMS Key policy that authorize the user/role
+	An IAM policy that authorizes access to KMS
+	otherwise you will get an access denied error
+
+S3 bucket polices - To fornce SSL, create an S3 bucket policy with a DENY on the condition "aws:SecureTransport = false"
+S3 Bucket key for SSE-KMS encryption 
+   This leverages data keys, A "S3 bucket key" is generated.
+   That key is used to encrypt KMS objects with new data keys
+   
+SSM Parameter store:
+    secure storage for configuration and secrets
+	Optional seamless Encryption using KMS
+	serverless, scalable, Durable, easily SDK
+	version tracking of configuration/secrets
+	
+SSM Parameter store Hierarchy
+/my-department/
+    my-app/
+	   dev/
+	       db-url
+		   db-password
+	   prod/
+	   qa/
+	other-app/
+	
+AWS Secrets Manager:
+Newer service, meant for storing secrets
+capability to force rotation of secrets every X days
+***
+secret storing, rotation of secrets, Integration to RDS its "AWS Secrets Manager"
+
+    Secrets Manager                                             SSM Parameter store
+Automatic rotation of secrets with AWS lambda                       No Secrets rotation
+Lambda function provided RDS, Reshift, DocumentDB                   Simple API
+KMS encryption is mandatory                                         KMS encryption is optional
+can integrate with cloudformation                                   can integrate with cloudformation
+
+CloudWatch Logs Encryption:
+You can encrypt cloudwatch logs with KMS keys
+Encryption is enabled at the log group level, by associating a CMK with a log group
+you cannot associate a CMK with a log group using the cloudwatch console
+You must use the CloudWatch logs API:
+   associate-kms-key
+   create-log-group
+     
+
+
+   
+
+	

@@ -1,0 +1,473 @@
+Modules:
+1. AWS Serverless: DynamoDB
+2. AWS Serverless: API Gateway
+
+
+1. ---------- AWS Serverless: DynamoDB ---------------
+DynamoDB - NoSQL sreverless Database
+NoSQL database are non-relational databases and are distributed
+NoSQL databases include MongoDB, DynamoDB
+NoSQL databases do not support Query joins
+
+Amazon DynamoDB:
+Fully managed, highly avaialble with replication across multiple AZs
+Millions of request per secounds, trillins of row, 100s of TB of storage
+Integrated with IAM for security, authorization and administration
+
+DynamoDB Basics:
+Its made of Table
+Each table has as a PRIMARY KEY (must be decided at creation time)
+Each table can have an infinite number of items(= rows)
+Maximum size of item is 400kb
+
+*** (Exam will be question)
+DynamoDB - Primary keys
+Option I: Partition Key (HASH)
+    partition key must be unique for each item
+	primary key     Attributes
+	
+Option II: Partition key + Sort Key (HASH + RANGE)
+    The combination must be unique for each item
+	primary-key + sort-key    Attributes
+	
+DynamoDB: We wont setup any Database, Initally its already provisioned by AWS, Only we create a Tables as per our requirements
+
+DynamoDB - Read/Write Capacity Modes
+Control how you manage your table's capacity (read/write throughput)
+a) Provisioned 	Mode
+b) On-Demand Mode
+You can switch between different modes once every 24 hour
+
+***
+a) Provisioned Capacity Mode
+Write Capacity Units:
+One Write Capacity Unit represents one write per secound for an item upto 1kb in size
+If the items are larger than 1kb, more WCUs are consumed
+
+Ex1: we wite 6 items per secound with item size 4.5kb
+6* (5/1) = 30 WUCs
+
+Ex2: we write 120 itesm per minute with size of 2kb
+(120/60)*(2/1) = 4WUCs
+
+Strongly Consitent Read vs Eventually Consitent Read:
+Eventually consitent Read(default): if we read data just after the write, we lose some data because of replication
+Strongly Consitent Read: If we read just after a write, we will get a correct data
+    Set "ConsitentRead" PARAMETER to True in API calls
+    consumes twice the RCUs
+
+Read Capacity Units:
+One read capacity Unit represents one strongly consitent read per secound or two eventually consitent reads per secound for an item upto 4kb size
+If the items are larger than 4kb, more RCUs are consumed
+
+Ex1: 10 strongly Consitent Reads per secound with item size 4kb
+10*(4kb/4kb) = 10 RCUs
+Ex2: 16 Eventually Consitent reads per secound with item size 12kb
+(16/2)*(12kb/4kb) = 24 RCUs
+Ex3: 10 strongly consitent reads per secound with item size 6kb
+(10)*(8kb/4kb) = 20 RCUs (6kb approximate to 8kb)
+
+DynamoDB partitions:
+Data is stored in partitions
+Partition keys go through a hashing algorithm to know which partition they go to
+To compute the number of partitions
+a) Number of partitions by capacity = (RCUs total/3000) + (WCUs total/1000)
+b) Number of partitions by size = Totalsize/10 GB
+
+
+DynamoDB - Throttling:
+If we exceed provisioned RCUs or WCUs, we get "ProvisionedThroughputExceedException"
+
+Reasons:
+Hot keys - one partition key being read to many times
+Hot partitions
+very large items
+
+Solutions:
+Exponential Backoff when exception is encountered 
+If RCU issue, we can use DynamoDB Accerlator (DAX)
+
+b) On-Demand Capacity Mode
+Read/write automatically scale up/down with your workloads
+No capacity planning needed for WCU/RCU
+you will be charged for reads/writes that you use in terms of RRU and WRU
+2.5 more expensive then "PROVISIONED MODE"
+ex: More used in Un-predicted word loads in development
+
+DynamoDB - API calls
+
+a) DynamoDB writing Data
+PutItem -
+    create a new item or fully replace with old item
+UpdateItem - 
+    Edit's an existing item's attribute or add new item if it doesn't exist
+Condition Wites -
+    Accept a write/update/delete only if conditions are me, otherwise returns an error
+
+b) DynamoDB reading Data
+GetItem -
+    Read based in primary key
+	primary key can be HASH or HASH + RANGE
+
+Query return based on (keyConditionExpression, FilterExperssion)
+
+c) DynamoDB deleting data
+deleteitem -
+    Delete an individual item
+DeleteTable -
+    delete whole table and all its items
+	
+Finally scan will get all items in table, but in qeury you will get based on query conditions
+
+DynamoDB - Local Secondary Index (LSI)
+Alternate "sort key" for your table (same Partition key as that of base table)
+Must be defined at table creation time
+
+ ---- Primary key -----       -----  Attributes ------
+ partition-key   sort-key      LSI  	other-columns
+
+DynamoDB - Global Secondary Index (GSI)
+Alternate "Primary key" from the base table
+can be added/modified after table creation
+
+    query by user-id                           index by GSI
+primary-key  sort-key  attributes          partition-key sort-key  Attributes
+  user-id    game-id   game-ts               game-id      game-ts    user-id
+
+***  
+DynamoDB - Indexes and Throttling:
+Global Secondary Index (GSI):
+* "If the writes are throttled on the GSI, then the main table will be throttled"
+* Even if the WCU on the main tables are fine
+* choose your GSI partition key carefully
+* Assign your WCU capacity carefully
+
+Local Secondary Index (LSI):
+* uses the WCUs and RCUs of the main table
+* No special throttling considerations
+
+***
+DynamoDB - Optimistic Locking
+DynamoDB has a feature called "Conditional Writes"
+A strategy to ensures an item hasn't changed before you update/delete it.
+
+DynamoDB Accerlator (DAX):
+Fully managed, highly available, seamless in-memory cache for database
+Solve's the "HOT KEY" problem (too many/reads)
+5 minutes TTL for cache (default)
+Multi AZ (3 nodes minimum recommended for production)
+secure (Encryption at rest with KMS, VPC, IAM cloudtrail etc)
+
+Application/Cient ===> DAX cluster  ===> DynamoDB
+
+DynamoDB Accerlator --- Individual objects cache , query and scan code
+Amazon ElasticCache --- Store aggregation result
+
+DynamoDB - Streams:
+* ordered stream of item-level modifications (create/update/delete) in a table
+* stream records can be:
+  sent to Kinesis Data streams
+  read by AWS lambda
+  read by Kinesis client java library
+* Data retention upto 24 hours
+* use cases : Analytics, Elasticsearch, cross-origin replication
+
+            c/u/d 
+Application -----> Table  ----> DyanmoDB streams  ----> Kinesis data streams ---> kinesis Data firehose ----> Redshift	
+
+DynamoDB streams are made of shards, just like kinesis data streams
+You don't provision shards, this is automated by AWS
+"RECORDS ARE NOT PROACTIVELY POPULATED IN A STREAM AFTER ENABLING IT"
+type enabling are: KEY_ATTRIBUTES_ONLY, NEW_IMAGE, OLD_IMAGE, NEW_AND_OLD_IMAGE
+you need to define an Event source Mapping to read from a DynamoDB  streams
+
+DynamoDB - TTL :
+Automatially delete items after an expiry timstamp
+Doesn't consumes any WCUs (ie, no extra cost)
+The TTL attribute must be a "Number" data type with "Unix Epoch timestamp" value.
+A deleted operation for each expired item enters the DynamoDB streams
+use cases: reduce stored data by keeping only current items, adhere to regulatory obligations
+
+DynamoDB CLI:
+--projection-expression: one or more attributes to retrieve
+--filter-expression: Filter items before turned to you
+
+--page-size: specifies that aws cli retrieves full list of items
+--max-items: max number of items to show in the CLI
+--starting-token: specify the last NextToken to retrieve the next set of items
+
+DynamoDB Transactions:
+Co-ordinate, all or nothing operations (add/update/delete) to multiple items across one or more tables
+Read Modes - Eventual Consitency, strong consitency, Transactional
+Write Modes - Standard, Transactions
+Consumes 2 x WCUs & RCUs
+***
+DynamoDB Transactions - CAPACITY COMPUTAIONS
+Ex 1: 3 transaction writes per second, with item size 5kb
+      3 * (5/1) * 2 (transaction cost) = 30 WCUs
+	 
+Ex 2: 5 transactions reads per second, with item size 5kb
+      5 * (8kb/4kb) * 2(transaction cost) = 20 RCUs
+	  (5kb get rounded to upper value 8kb)
+
+***
+DynamoDB as Session state cache
+It's common to use DynamoDB to store session state(mostly in web applications)
+vs ElasticCache :                        DynamoDB: (Most important)
+    ElastiCache	 is in memory            Its serverless, autoscaling etc
+	store key/values                     store key/values
+
+vs EFS:
+   EFS must be attached to EC2 instances as a network drive
+  
+vs EBS & Instance store:
+   EBS & Instance store can only be used for local caching, not shared caching
+   
+vs S3:
+   S3 is higher latency, and not meant for small objects
+
+DynamoDB Write Sharding:
+if we two candidates "A" & "B",
+If partition key is "Candidate_ID" this results into two partitions which generate issues
+Solution: Add a suffix or prefix to partition key
+method: sharding Using Random suffix and Sharding using Calculated suffix
+
+DynamoDB - Write Types:
+user_id      type    value
+  john       work      1
+  
+CONCURRENT WRITES - user1: update value = 1, another user2 update value = 2 ---> the secound write overwrites the first write
+CONDITION WRITES - user1: update value = 1, another user2 update value = 2 ---> first write is accepted and second write fails
+ATOMIC WRITES - user1: update increase value = 1, another user2 update increase value = 2 ---> Both writes succeded by 30
+BATCH WRITES - user1: update value = 1, another user2 update value = 2 ---> Write/Update many items at a time
+
+DynamoDB - Large Objects Pattern
+More than 400kb size data can't able to store in TABLE
+we upload data to S3 buclet, then bucket meta-data will be stored in table
+
+Application ---> Upload Image to S3 Bucket ---> S3 Bucket ---> metad file information to Table ---> TABLE
+
+Table 
+product-id     product-name    Image-Url
+   1              jeans         https://media-data-jeasn
+   2              shidt         https://media-data-shirt
+   
+AWS data pipeline:(Copying table use case)
+First table will be copied(WRITE) to S3 through EMR cluster, then from s3 again (READ) into new table creation.
+
+DynamoDB - Security 
+VPC Endpoints available to access DynamoDB without using the internet
+Access fully controlled by IAM
+Backup and restore feature available
+AWS Database Migration service(AWS DMS) can be used to migrate to DynamoDB (from MongoDB, Oracle, MySql, S3 ...)
+ 
+2. ---------- AWS Serverless: API Gateway --------------- 
+
+         REST API                  Proxy request              CRUD
+client < --------- > API Gateway < ------------- > Lambda < --------- > DynamoDB
+
+AWS API Gateway: features are listed below
+AWS lambda + API Gateway : No Infrastructure to manage
+support for the websocket protocol
+Handle API versioning (v1, v2, v3 ...)
+Handle different environments (dev, test, prod)
+Handle security (Authentication and Authorization)
+Create API keys, handle request throttling etc...
+Transform and validate requests and responses
+
+API Gateway - Integrations High level
+Lambda Function (easy way to expose REST API backend by AWS lambda)
+HTTP            (expose HTTP endpoints in the backend)
+AWS Service     (expose any AWS API through the API gateway)
+
+API Gateway - Endpoint Types:
+a) Edge-Optimized (default):  For Global Clients
+Requests are routed through the Cloudfront Edge locations(improve latency)
+The API Gateway still lives in only one region
+
+b) Regional 
+For clients within the same region
+
+c) Private:
+can only be accessed through your VPC usign an interface VPC endpoints
+
+import json
+def lambda_handler(event, context):
+	body = "Hello from Lambda!"
+	statusCode = 200
+	return {
+		"statusCode": statusCode,
+		"body": json.dumps(body),
+		"headers":{
+			"Content-Type": "application/json"
+		}
+	}
+
+API Gateway - Deployment stages:
+Making changes in the API Gateway does not mean they're effective
+You need to make a "deployment" for them to be in effect
+Its a common source of confusion
+chages are deployed to  "stages"(dev, test, prod) as many you want.
+each stage has its own configuration
+stages can be rolled back as a history of deployment is kept
+
+"STAGE VARIABLES are like environment variables for API Gateway"
+They can be used in 
+Lambda function ARN
+HTTP Endpoint
+parameter mapping templates
+
+API Gateway stage vaiables & Lambda aliases
+* we create a "STAGE VARIABLE" to indicate the corresponding lamnda alias
+* Our API gateway will automatically invoke the right lambda function
+
+No API Gateway changes  	Prod stage   -----> Prod alias (95 % and 5% to another lambda) ----> lambda v1  (Backend we change the % of routing traffic data)
+                            Test stage   -----> Test alias (100 %) ----> lambda v2 
+
+API Gateway - Canary Deployment:
+* Possibility to enable canary deployment for any stage(usually prod)
+* Choose the % of traffic the canary receives
+
+Client     95% Traffic ----> API gateway --- prod stage ---> Lambda V1
+           05% Traddic ----> API gateway --- prod stage canary ---> Lambda V2	
+Once all traffic are working as expected then traffic will route 100% to prod canary stage
+
+API Gateway - Integration Types:
+a) Integration Type Mock:
+API Gateway returns a response without sending a request to the backend
+
+b) Integration Type HTTP/AWS (lambda and AWS services):
+you must configure both the integration request and integration response
+setup data mapping using mapping templates for the request and response
+
+c) Integation Type AWS_PROXY (lambda Proxy):
+Incoming request from the client is the input to lambda
+No Mapping template, headers, query string parameters .... are passed as arguments
+
+d) Integration Type HTTP_PROXY:
+No mapping template
+The HTTP request is passed to the backend
+The HTTP response from the backend is forwarded by API Gateway
+Client ---> API Gateway  --- HTTP_PROXY -- (request and response are proxied) --> Application load balancer
+
+Mapping Templates (AWS & HTTP Integration):
+Mapping templates can be used to modify request/responses
+Rename/Modify query string parameters
+Modify body content
+Add headers
+
+***
+Mapping Example: JSON to XML with SOAP
+Soap api are XML based, whereas rest api are json based
+                                        
+Client --- rest api/JSON payload --> API gw + Mapping Template ---XML payload---> 	SOAP api 
+Mapping template here: convet to soap message(request) based on json payload
+and mapping template give back response with json format
+
+Caching API responses
+* caching reduces the number of calls made to the backend
+* Default TTL is 330 secounds, min: 0s to max: 3600s
+* cache is expensive, makes sense in production, may not make sense in dev/test
+
+API Gateway - Cloudwatch Metrics:
+CacheHitCount & CacheMissCount: Efficiency of the cache
+Count
+Latency: The ApIGateway request will stands for maximum 29sec
+
+API Gateway Errors:
+
+a) 4xx means: Client error
+400: Bad request
+403: Access Denied, WAF filtered
+429: Quota Exceeded, Throttle
+
+b) 5xx means: server errors
+502: Bad Gateway Exception
+503: srvice unavailable Exception
+504: Integration failure - Endpoint request timeout Exception
+"API Gateway requests time out after 29 secound maximum"
+
+API Gateway - CORS:
+CORS must be enabled when you receive API calls from another domain.
+CORS are enabled through the console
+OPTIONS pre-flight request must contain the following headers:
+Access-Control-Allow-Methods
+Access-Control-Allow-Headers
+Access-Control-Allow-Origin
+
+API Gateway - Security (IAM permissions)
+Create an IAM policy authorization and attach to User/Role
+Authentication = IAM        | Authorization = IAM Policy
+Above are good to provide access within AWS(EC2, Lambda, IAM users)
+
+Security categories are:
+a)Resource policies
+Its similar to Lambda Resource policy(which makes which one to allow and provide access)
+Allow for cross account access(Combined with IAM security): allow for specific IP or Specific Endpoint
+ 
+b)Cognito User Pools
+cognito fully manages user lifecycle, token expires automatically
+API gateway verifies identity automatically from AWS cognito
+Authentication = cognito User pools | Authorization = API Gateway Methods
+
+c)Lambda Authorizer:
+Token based authorizer - ex JWT (JSON Web Token) or Oauth
+A request parameter-based lambda authorizer (headers, query, string, stage var)
+Lambda must return an IAM policy for the user, result policy is cached
+Authentication = External           | Authorization = Lambda Authorizer
+
+API Gateway - Security summary
+a) IAM:
+Great for users/roles already within your AWS account + resources policy for cross account
+Handle authentication + authorization
+b) Customer Authorizer:
+Great for 3rd party Tokens
+Handle authentication + authorization for lambda function
+c) Cognito User pool:
+You manage your own user pool (can be backend by facebook, Google login etc...)
+No need to write any custom code
+ 
+HTTP Api is low-latency, cost-effective only proxy methods avaialable, but in REST API's it supports all features(Recommended always)
+
+API Gateway - WebSocket API:
+Websocket: Its Two-way Interactive communication between a user's browser and a server.
+server can push information to the client
+
+Websocket are often used in Real-time applications, such as chat applications, collaboration paltform and financial trading platforms etc
+Its makes "persistent connections"
+
+websocket url: wss://[some-uniqueid].execute-api.[region].amazonaws.com/[stage-name]
+ex: wss://abcdef.execute-api.us-west-1.amazonaws.com/dev
+
+web/mobile app  ----> AwsAPI/websocket api  --- connectid ---> Lambda function  ---- connectid ----> DynamoDB 
+
+API Gateway - Websocket API - Routing:
+Incoming JSON messages 	are routed to differnt backend
+if no routes = sent to $default
+the result is evaluated against the route keys available in your API Gateway
+
+INCOMING DATA:
+{
+	"service": "chat",
+	"action" : "join",
+	"data"   : {
+		"room" : "room1234"
+	}
+}
+
+API Gateway summary:
+To make serverless API, you should Integrate API Gateway with "AWS lambda"
+To redirect your API Gateway stage to the correct AWS Lambda Alias, you should use "STAGE VARIABLES"
+Canary release helps to shifting traffic to new testing ApI
+API Gateway Caching is defined per "STAGE" with the default TTL "300 secounds"
+Clients Invalidate the cache of an API from the client side ----> using the HTTP header "cache-Control: max-age=0"
+"IntegrationLatency" Helps you analyze the timeout issues between API gateway and lambda function
+
+
+	
+
+
+ 
+
+
+

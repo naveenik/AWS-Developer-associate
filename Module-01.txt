@@ -1,0 +1,342 @@
+Modules:
+1. Types of Cloud Computing
+2. IAM
+3. Elastic Compute Cloud(EC2)
+4. EC2 Instance Storage
+5. ELB and ASG
+
+1. --------  Types of Cloud Computing   -------- 
+
+1. Infrastructure as a service
+Provide the Building block for CLoud IT
+
+ex : EC2
+
+2. Platform as a Service
+Removes the need for your organization to manage the undelying Infrastructure
+ex : Elastic Beanstalk
+Heroku, Google App Enginer
+
+3. Software as a service
+Completed product that is run and managed bu the service provider
+ex : Google apps Gmail, DropBox , Zoom
+
+Pricing for Compute 
+Compute : Pay for compute time
+Storage : Pay for data stored in Cloud
+Data Transfer : Pay for OUT of the cloud , Free for IN data transfer
+
+  -----      AWS regions ----
+AWS has regions all around the world
+names can be eu-west-1, eu-west-2 , eu-central-1 etc
+
+Region is a cluster fo Data centres 
+1. Each region has many availabilty Zones
+   eu-west-1a, eu-west-1b, eu-west-1c
+2. Each availability Zone is one or more descrete data centres with redundant power, networking and connectivity
+3. They are seperated frome each others, so that they are isolate from disasters.
+4. They are connected with high-bandwidth, Ultra-low latency networking 
+
+2. --------  IAM   --------
+
+IAM is a global service.
+who can securely manage and acces to AWS service and resources
+Using IAM create user and groups and manage their access to means of permsission AWS resource ALLOW or deny
+To keep secure IAM:
+Rotate credentials regularly
+Configure a strong password policy for users
+Enable MFA
+
+IAM policies: It define permissions for an action regardless of the method that you use to perform the Operation.
+IAM roles: To grant permission within aws services
+we commomly use the EC2 and lambda services for IAM roles
+
+---- IAM Guidelines  and Best practises ----
+. Dont use the root account except for AWS account setup
+. one physical user = One AWS user
+. Assign users to group and  assign permissions to groups
+. create a strong password policy
+. use and enforce the use of Multi factor Authentication
+. create and use roles for giving permissions to AWS services
+. Use Access keys for Programatic access(CLI )
+
+--------- Summary --------------
+Users: Mapped to a physical user, has a password for AWS Console
+Groups: contians users only
+Policies: JSON documents that outlines permissions for users and groups
+Roles: For EC2 Instance or AWS Services
+Security: MFA + Password Policy
+AWS CLI: manage your AWS services using the command line
+AWS SDK: manage your AWS services using the programming language
+Access keys: access AWS using CLI or SDK
+Audit: IAM Credential Reprots & IAM Access advisor
+
+3. ---- Elastic Compute Cloud(EC2) -------
+
+Infrastructure as a service, It mainly consists in the capacity of:
+1. Renting virtual Machines(EC2)
+2. Storing Data on virtual drives(EBS)
+3. Distributing load across machines(ELB)
+4. Scaling the services using an auto scaling group(ASG)
+
+EC2 sizing and configurations options
+1. Operating systesm: Linux, Windows or Mac OS
+2. How much compute power and cores(CPU)
+3. How much random-acess memmory(RAM)
+4. How much storage space
+   Network attached (EBS and EFS)
+   Hardware attached (EC2 instance store)
+5. Netwrok card: Speed of the card, Public IP address
+6. Firewall rules: Security Group
+7. Bootstrap script( configure at first launch ): EC2 user data
+
+Bootstrapping means launching commands when a machine starts
+That script is only run once at the instance first starts
+. Installing Updates
+. Installing Software
+. Downloading common files from the internet
+
+The EC2 user Data script runs with the root user
+
+----   ec2-user data ----
+#!/bin/bash
+#use this for user data (from top to bottom)
+#install httpd
+yum install -y
+yum install -y httpd
+systemctl start httpd
+systemctl enable httpd
+echo "<h1>Hello World from $(hostname -f)<h1>" > /var/www/html/index.html
+
+
+EC2 Instance types 
+. Genereal purpose : Great for a diversity of workload such as web serviers or code repositories (T and M series)
+. Compute Optimized : Great for compute-intensive tasks that require high performace processors Ex : Machine learning, AI tasks (C series)
+. Memory Optimized : Fast performance for workloads that process large data sets  Ex: Relational and Non - relaional DB (R and X series)
+. Storage Optimized : Great for Storage-intensive tasks that require high, sequential read and write access to large data sets on local storage
+ 
+Security Groups:
+. Security Groups are acting as a firewall on EC2 instance
+. They regulate
+Acces to ports
+Authorised IP ranges - IPv4 and IPv6
+Control of inbound networking
+Control of Outbound networking
+
+Good to Know about the Security Groups
+. Can be attached to multiple instances
+. Locked down to a region VPC combination
+. Its good to maintain one seperate secuiry groups for SSH access
+. All inbound traffic is Blocked by default
+. All outboubd traffic is Authorised by default
+
+*** 
+If your Application is not accessible(Time out), then its a security group issue
+If your Application gives a "Connection refused" error, then its a Application error or its not launched.
+
+Classic ports to know
+22 = SSH - login into a linux
+3389 = RDP - login into a windows instance
+80 = HTTP - acccess unsecured websites
+443 = HTTPS - access to secured websites
+
+EC2 Instance Types
+1. On-Demand: Short workload, predictable pricing
+2. Reserved:(Minimun 1 year)
+3. Spot Instances: Short workloads, cheap , can lose instances(less reliable)
+4. Dedicated Hosts: Book an Entire physical server, control instance Placement
+
+----------- Summary ---------------
+
+EC2 Instance: AMI + Instance size(CPU + RAM) + storage + security groups + Ec2 user data
+Security Groups: Firewall attached to the EC2 Instance
+EC2 user data: Script launched at the first start of an instance
+SSH: start a terminal into our EC2 Instances
+EC2 Instance Role: Link to IAM Roles
+Purchasing Options: On-Demand, spot, Reserved, Dedicated host and dedicated Instance
+
+4. ------ EBS Volume(Ec2 Instance storage) ---------
+
+An EBS (Elastic Block store)Volume is a networkdrive you can attach to your instance while they run.
+It allows your instances to persist data, even after their terminiation
+They can only be mounted to one instance at a time
+They are bound to specific availablity zone
+
+Its a network drive: It uses network to communicate the instance, which means there might be a bit of latency
+An EBS volume in us-east-1a cannot be attached to us-east-1b
+To move a volume across, you first need to snapshot it.
+
+By default EBS root volume will be deleted, after the EC2 instance termination
+By default attached EBS volume remains, after the EC2 instance termination
+we can modify as per the requirement for our project through AWS console or CLI
+
+***
+EBS Volume Types
+Genereal purpose SSD(gp2/gp3): Cost effective storage, low latency used as Boot volumes, best for Development and test systems
+Provsioned IOPS SSD(io1/ io2): Critical Busins Application with sustained IOPS performance, great for Database Workloads(suports EBS Multi attach)
+Hard Disk Drive(HDD): Cannot be boot volume (st1 Throughput HDD): Big data, Data Warehousing, Log processing.
+                                            (sc1 Cold): for data is infrequently , where cost is needed.
+io1/io2 Family: Attach the same EBS volumes to multiple EC2 Instance in the same AZ.
+where teradata byte of operation need to carry out Clustered Enviornment.
+											
+EBS snapshots:
+1. Not neccessary to detach volume to so snapshot, but recommended
+2. Can copy snapshots across AZ or Regions
+3. Snapshot are created and copied to required region and we can use it as Normal EBS volume for Operations
+
+AMI Overview:
+Amazon Machine Image are a customize of an EC2 instance
+You can add your own software, configuration, operating systems, montoring
+***
+AMI are built for specific region( and can be copeied across regions)
+
+EC2 Instance Store: Local EC2 Instance for better performance with Higher IOPS compared to EBS Volumes, Here hardware is attached to physical drive
+                    It has better IO performance, but data is lost if the EC2 Instance is stopped or
+                    terminated or when the underlying disk drive fails.
+EC2 Image builder: 
+It Simplifies the building, testing and deployment of virtual machine and container images for use on AWS or  on-premises
+Image Builder Dispatches the work to be performed by copying the document and application to your instance
+
+EFS- Elastic File system
+. Managed NFS(network file system) that can be mounted to 100s of Ec2
+. EFS only work with Linux EC2 with Multi AZ
+. Highly available, scalable, Expensive, no capacity planning(charges)
+  EFS have 	higher price amount then EBS
+  to save cost use EFS-IA for infrequent access
+  
+
+EBS - Its network volume for single Instance to single AZ bound
+EFS - Its network file system for multi AZ instance
+EBS Instance store - To get maximum IOPS for instance, you will loose data once Instance Stop or terminated
+
+Amazon SFX: for windows file server provides fully managed, highly reliable and 
+scalable file storage that is accessible over the Standard server message Block
+
+
+5. --------- ELB and ASG -----------
+
+Scalability means that an application can handle greater loads by adapting (Two kinds of Scalability)
+1. Vertical
+2. Horizontal
+
+Vertical Scalability means increasing the size of the instance
+ex: application scaling from t2.micro to t2.large 
+Scale up means incresing size, Scale down means decreasing size
+Its very common for non disrubuted systems, such as databases also hardware limit
+
+Horizontal Scaling means increasing the number of instances for your application
+Horizontal scaling implies distibuted systems
+Scale out increase the number of instances
+Scale in decrease the number of instances
+This is very common for web application/ Modern applications
+
+High Availabity - 
+Usually goes hand in hand with horizontal scaling
+High Availabity means running your application in atleast 2 Availabity Zones
+The goal of High Availabity is to survive data centre loss
+We use Auto scaling Group and load balancer for this
+
+High Availabity: Run instances for the same application across multi AZ 
+. Auto scaling with mutli AZ
+. Load Balancer with multi AZ
+
+Scalabity: Ability to accommodate a larger load by making the hardware stronger(scale up) or by adding the nodes(scale out)
+Elasticity: Once system is scalable, elasticity means that there will be some "auto-scaling" so that the system can scale based on the load.
+Agility(not related to scalability): New resources are only a click away, which means that you reduce the time to make,
+those resources available to your developers from week to just minutes.
+
+Load Balancing:
+Load Balancers are servers that forward internet traffic to multiple servers(EC2 Instances) Downstream
+
+Why LB:
+Spread load across multiple downstream instances
+Expose a Single point of access(DNS) to your application
+Seamlessly handle failures of downstream instaces
+High available across zones
+
+Elastic Load Balancer is a managed load balance(AWS take care of Integration, maintenance and Upgradation and uptime)
+It forwards the request to Ec2 Instances, containers, IP address and Lambda funcrions.
+
+3 Kinds of Load balancer offered by AWS
+* Application Load Balancer(HTTP/HTTPS) - Layer 7 (path based routing, host based, websockets, containerized)
+* Network Load Balancer(ultra-high performace, allows for TCP) - Layer 4 (It wont support path or host)
+* Gateway Load Balancer(singl entry/exit for all traffic, and also load balancer) - Layer 3 Network layer, IP Packets
+  It uses GENEVE Protocol port 6081
+* Classic Load Balancer (Slowly retaining) - Layer 4 and 7 - Old generation method (It wont supportpath or host)
+
+With Cross Zone Load Balancing:
+	Each load balancer instance distributes evenly across all registered isntances in all AZ
+Without Cross Zone Load Balancing
+	Requests are Distributed in the instances of the node of the Elastic Load Balancer
+
+Cross zone Load Balancing:
+* Application Load Balancer(Always on, no charges for inter AZ data)
+* Network Load Balancer(Disabled by default, You pay charges for inter AZ)
+* Classic Load Balancer(Disabled by default, No charges for Inter AZ if enabled)
+
+Application and Classic Load Balancer as a static Domain name
+where as Network load balancer has static IP address per AZ you can attach Elastic IP address.
+
+SSL/TLS Basics:
+It allows traffic between your clients and load balancer to be encrypted in transit.
+SSL Secure Socket layer older version
+TLS Transport Layer Security newer version
+load balancer uses an X.509 certificate (SSL/TLS)
+
+SNI - Server Name Indication
+It solves the problem of loading multiple SSL certificate Into one web server. Which serves multiple websites.
+
+ELB sticky session feature ensures traffic for the same client is always redirected to the same target.
+EC2 Instances will recieve request form ALB private IP addresses, to get the client IP address ALS adds an 
+additional header called X-Forwarded-For contains Client IP address
+
+Auto Scaling Group:
+* Scale out to match an increased load
+* Scale in to match a decreased load
+* Ensure we have minimum and maximum number of machines running
+* Automatically register new instances to a load balancer
+ 
+Scaling policies can be on CPU, Network and even can be on custom metrics or based on schedule.
+ASG uses launch configurations or launch template
+IAM roles attached to an ASG will get attached to EC2 Instance
+ASG are free, You pay underlying the resources being launched
+
+
+ASG - Scaling Strategy
+* Manual Scaling: Update the size of an ASG manually
+Other Methods are:
+1. Dynamic Methods are below
+   Simple/step scaling
+   when a cloud watch alarm is triggered(example CPU > 70%), then add 2 units
+   when a cloud watch alarm is triggered(example CPU < 30%), then remove 1 units
+  b.Target Tracking scaling
+    Example: I want the average ASG CPU to stay at around 40%
+2. Scheduled Scaling
+   Increase the min capacity to 10 at 5 pm on Fridays
+3. Predictive Scaling
+   Uses a Machine learning to predict the traffic ahead of time
+
+Good Metrics to scale on:	
+* CPU Utilization: Average CPU utilization across your instances
+* RequestCountPerTarget: To make sure number of requests per EC2 Instance is stable
+* Average Network In/Out(If you re application is network bound)
+* Any custom metric(That you push using Cloudwatch)
+
+ASG - Scaling Cooldowns
+After a scaling activity happens you are in cooldown period(default 300 secounds)
+During the cooldown period, the ASG will not launch or terminate additiona; instances(to allow for metrics to stablilize)
+Advice: Use a ready to use AMI ti reduce te 
+protocol types Important 
+
+
+
+
+
+
+
+
+
+
+
+
+

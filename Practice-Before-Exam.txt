@@ -1,0 +1,24 @@
+Take one simple application
+Try deploying manually on EC2
+Try deploying it on Elastic Beanstalk and have it scale
+Try creating CI-CD pipeline
+Try decouplning components using SQS/SNS
+Try the AWS Lambda functions
+Automation task:
+    shut-down EC2 instance at night/start in the morning
+    Automate snapshots of EBS volumes at night
+    List all the under-utilized EC2 Instances
+
+
+Skim the AWS White-papers:
+AWS Security Best-practises
+AWS Well-Architectured Framework
+Achitecting for the Cloud Best Practises
+Continous Delivery Continous Deployment
+Microservice on AWS
+Blue/Green Deployment on AWS
+
+
+Fequently Asked Questions are important for each service to look before the Exam
+
+
